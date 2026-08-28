@@ -53,7 +53,7 @@ Geef voor elke zin een object met:
 Antwoord ALLEEN met geldige JSON in dit exacte formaat, zonder verdere uitleg of markdown:
 {"exercises": [{"prefix": "...", "suffix": "...", "answer": "...", "options": ["...", "...", "..."], "infinitief": "..."}]}`;
 
-  const model = 'gemini-2.5-flash';
+  const model = 'gemini-3.6-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   try {

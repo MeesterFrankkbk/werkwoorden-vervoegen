@@ -92,7 +92,9 @@ function populateVoices(select){
 function reeksNaam(key, setNum){
   const stored = localStorage.getItem('reeksnaam_'+key+'_'+setNum);
   if(stored) return stored;
-  return key==='allin' ? 'All-in' : ('Reeks ' + setNum);
+  if(key==='allin') return 'All-in';
+  if(key.startsWith('hb_')) return key.slice(3); // standaard: de bestandscode zelf, bv. "TK060106"
+  return 'Reeks ' + setNum;
 }
 function hernoemReeks(key, setNum){
   if(!state.teacherMode) return; // enkel zichtbaar/klikbaar als Meester Frank is ingelogd
@@ -523,6 +525,11 @@ function renderHome(){
 /* ---------- topic (kies reeks) ---------- */
 function renderTopic(key){
   const t = WERKWOORDEN_DATA[key];
+  const handboekReeksen = Object.keys(HANDBOEK_DATA).filter(code => HANDBOEK_DATA[code].tense === key);
+  const handboekBtns = handboekReeksen.map(code=>`<span>
+        <button class="bigbtn" style="background:${t.color}" onclick="renderHandboekNiveau('${code}')">${reeksNaam('hb_'+code,'1')}</button>
+        ${state.teacherMode ? `<button class="renamebtn" title="Naam wijzigen" onclick="hernoemReeks('hb_${code}','1')">✏️</button>` : ''}
+      </span>`).join('');
   root.innerHTML = `
     <button class="backbtn" onclick="renderHome()">← Terug</button>
     <h2>${t.title}</h2>
@@ -532,6 +539,7 @@ function renderTopic(key){
         <button class="bigbtn" style="background:${t.color}" onclick="renderNiveau('${key}','${s}')">${reeksNaam(key,s)}</button>
         ${state.teacherMode ? `<button class="renamebtn" title="Naam wijzigen" onclick="hernoemReeks('${key}','${s}')">✏️</button>` : ''}
       </span>`).join('')}
+      ${handboekBtns}
     </div>
     <div style="margin-top:1.2rem">
       <img src="assets/${t.schema}" style="max-width:100%;border-radius:12px;border:2px solid var(--line)">
@@ -647,12 +655,16 @@ function renderStep(){
     inner = streakBadge() + renderClassify(step.data);
   } else if(step.type==='dictee'){
     inner = streakBadge() + renderDictee(step.data);
+  } else if(step.type==='stam'){
+    inner = streakBadge() + renderStam(step.data);
+  } else if(step.type==='vrijezin'){
+    inner = streakBadge() + renderVrijeZin(step.data);
   }
   root.innerHTML = `
     <button class="backbtn" onclick="${run.backAction}">← Stoppen</button>
     ${progressHTML()}
     <div class="exercise-box" style="border-color:${run.color}">${inner}</div>`;
-  if(step.type==='written' || step.type==='dictee'){
+  if(step.type==='written' || step.type==='dictee' || step.type==='stam' || step.type==='vrijezin'){
     const inp = document.getElementById('writeInput');
     if(inp) inp.focus();
   }
@@ -884,7 +896,7 @@ function renderReport(){
   const workList = run.wrong.slice(0,8);
   const st = state.student || {voornaam:'', naam:'', klas:'', klasnummer:''};
   const datum = new Date().toLocaleDateString('nl-BE');
-  const reeksLabel = run.key==='allin' ? '' : ` (${reeksNaam(run.key, run.setNum)}, niveau ${run.level})`;
+  const reeksLabel = (run.key==='allin' || String(run.setNum).startsWith('hb_')) ? '' : ` (${reeksNaam(run.key, run.setNum)}, niveau ${run.level})`;
   const streakLine = run.bestStreak >= 3 ? `<p>🔥 Langste reeks juiste antwoorden na elkaar: <b>${run.bestStreak}</b></p>` : '';
   const html = `
     <div class="report" id="reportBox">
@@ -909,7 +921,7 @@ function reportText(){
   const pct = run.total ? Math.round(run.correct/run.total*100) : 100;
   const st = state.student || {voornaam:'', naam:'', klas:'', klasnummer:''};
   const datum = new Date().toLocaleDateString('nl-BE');
-  const reeksLabel = run.key==='allin' ? '' : ` (${reeksNaam(run.key, run.setNum)}, niveau ${run.level})`;
+  const reeksLabel = (run.key==='allin' || String(run.setNum).startsWith('hb_')) ? '' : ` (${reeksNaam(run.key, run.setNum)}, niveau ${run.level})`;
   let txt = `Rapport werkwoorden - ${run.title}${reeksLabel}\n`;
   txt += `${st.voornaam} ${st.naam} - klas ${st.klas}, nr. ${st.klasnummer} - ${datum}\n`;
   txt += `Score: ${run.correct} / ${run.total} (${pct}%)\n`;
@@ -990,10 +1002,121 @@ function buildDicteeSet(maxLevel){
   return shuffle(buildDicteePool()).slice(0, n);
 }
 
-function renderAllInNiveau(){
+/* ========== Handboeklessen (TK-bestanden) ========== */
+function renderHandboekNiveau(code){
+  const lesData = HANDBOEK_DATA[code];
+  const t = WERKWOORDEN_DATA[lesData.tense];
   root.innerHTML = `
-    <button class="backbtn" onclick="renderHome()">← Terug</button>
-    <h2>🧠 ${reeksNaam('allin','1')} ${state.teacherMode ? `<button class="renamebtn" onclick="hernoemReeks('allin','1')">✏️</button>` : ''}</h2>
+    <button class="backbtn" onclick="renderTopic('${lesData.tense}')">← Terug</button>
+    <h2>${t.title} — ${reeksNaam('hb_'+code,'1')} ${state.teacherMode ? `<button class="renamebtn" onclick="hernoemReeks('hb_${code}','1')">✏️</button>` : ''}</h2>
+    <p>Kies je niveau. Hoe meer sterren, hoe meer opdrachten je maakt.</p>
+    <div class="niveau-grid">
+      <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','*')">
+        <b>★</b><p>Stam schrijven</p>
+      </div>
+      <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','**')">
+        <b>★★</b><p>+ juiste vorm invullen</p>
+      </div>
+      <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','***')">
+        <b>★★★</b><p>+ zelf een zin schrijven (AI-gecontroleerd)</p>
+      </div>
+    </div>`;
+}
+function startHandboekRun(code, level){
+  const order = {'*':1,'**':2,'***':3};
+  const cap = order[level];
+  const lesData = HANDBOEK_DATA[code];
+  const t = WERKWOORDEN_DATA[lesData.tense];
+  const seq = [];
+  seq.push({type:'info', text:`Welkom bij ${reeksNaam('hb_'+code,'1')}.`});
+  (lesData.stam||[]).forEach(it=> seq.push({type:'stam', data:it}));
+  if(cap>=2) (lesData.fillin||[]).forEach(it=> seq.push({type:'fillin', data:{...it, level:'**'}}));
+  if(cap>=3) (lesData.vrijezin||[]).forEach(it=> seq.push({type:'vrijezin', data:it}));
+  seq.push({type:'end'});
+  run = { key:lesData.tense, setNum:'hb_'+code, level, seq, i:0, correct:0, total:0, wrong:[], good:[],
+    color:t.color, title:reeksNaam('hb_'+code,'1'), streak:0, bestStreak:0,
+    backAction:`renderHandboekNiveau('${code}')` };
+  renderStep();
+}
+function renderStam(data){
+  run.total++;
+  setTimeout(()=>speak('Wat is de stam van '+data.infinitief+'?'),50);
+  return `<span class="level-badge" style="background:${levelColors['*']};color:${levelText['*']}">*</span>
+    <p class="prompt">Schrijf de stam van: <b>${data.infinitief}</b></p>
+    <div class="writeform">
+      <input type="text" id="writeInput" autocomplete="off" onkeydown="if(event.key==='Enter')checkStam()">
+      <button class="checkbtn" onclick="checkStam()">Controleer</button>
+    </div>
+    <div id="fb" class="feedback"></div>`;
+}
+function checkStam(){
+  const data = run.seq[run.i].data;
+  const inputEl = document.getElementById('writeInput');
+  const val = inputEl.value.trim();
+  const ok = val.toLowerCase() === data.antwoord.toLowerCase();
+  const fb = document.getElementById('fb');
+  inputEl.disabled = true;
+  document.querySelector('.checkbtn').disabled = true;
+  if(ok){
+    run.correct++; run.good.push(data.antwoord);
+    run.streak++; run.bestStreak = Math.max(run.bestStreak, run.streak);
+    fb.textContent='Mooi zo! ✅'; fb.className='feedback ok';
+    autoNext(900);
+  } else {
+    run.wrong.push({vraag:'stam van '+data.infinitief, juist:data.antwoord});
+    run.streak = 0;
+    fb.textContent='De juiste stam is: '+data.antwoord; fb.className='feedback no';
+    fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+  }
+}
+function renderVrijeZin(data){
+  run.total++;
+  return `<span class="level-badge" style="background:${levelColors['***']};color:${levelText['***']}">***</span>
+    <p class="prompt">Schrijf een goede zin met een vervoegde vorm van: <b>${data.infinitief}</b></p>
+    <div class="writeform">
+      <input type="text" id="writeInput" autocomplete="off" style="width:320px" onkeydown="if(event.key==='Enter')checkVrijeZin()">
+      <button class="checkbtn" onclick="checkVrijeZin()">Laat nakijken</button>
+    </div>
+    <div id="fb" class="feedback"></div>`;
+}
+async function checkVrijeZin(){
+  const data = run.seq[run.i].data;
+  const inputEl = document.getElementById('writeInput');
+  const zin = inputEl.value.trim();
+  const fb = document.getElementById('fb');
+  if(!zin){ fb.textContent='Schrijf eerst een zin.'; fb.className='feedback no'; return; }
+  inputEl.disabled = true;
+  document.querySelector('.checkbtn').disabled = true;
+  fb.textContent = '⏳ Even nakijken...'; fb.className = 'feedback';
+  try{
+    const res = await fetch('/.netlify/functions/check-sentence', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ infinitief: data.infinitief, zin })
+    });
+    const result = await res.json();
+    if(!res.ok){
+      fb.textContent = '❌ Kon niet nakijken: ' + (result.error || 'onbekende fout'); fb.className='feedback no';
+      fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+      return;
+    }
+    if(result.correct){
+      run.correct++; run.good.push(zin);
+      run.streak++; run.bestStreak = Math.max(run.bestStreak, run.streak);
+      fb.textContent = '✅ ' + (result.feedback || 'Goed gedaan!'); fb.className='feedback ok';
+      autoNext(1600);
+    } else {
+      run.wrong.push({vraag:'zin met '+data.infinitief, juist: zin + ' → ' + (result.feedback||'')});
+      run.streak = 0;
+      fb.textContent = '✏️ ' + (result.feedback || 'Dit kan nog beter.'); fb.className='feedback no';
+      fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+    }
+  }catch(e){
+    fb.textContent = '❌ Kon de AI-functie niet bereiken.'; fb.className='feedback no';
+    fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+  }
+}
+function renderAllInNiveau(){
+  root.innerHTML = ` ${state.teacherMode ? `<button class="renamebtn" onclick="hernoemReeks('allin','1')">✏️</button>` : ''}</h2>
     <p>Kies je niveau. Hoe meer sterren, hoe meer zinnen je moet herkennen én typen (dictee).</p>
     <div class="niveau-grid">
       <div class="niveau-card" style="border-color:#7c3aed" onclick="renderAllIn('*')">

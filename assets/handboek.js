@@ -4,6 +4,7 @@
    - tense: 'tt' | 'vt' | 'geenpv'
    - niveauBeschrijving: tekst per niveau-kaart
    - stam: [{infinitief, antwoord}]              -> niveau *
+   - persoonsvorm: [{prompt, answer}]             -> niveau * (typen, na de stam-oefeningen)
    - fillin: [{prefix, suffix, answer, options}]  -> niveau ** (hergebruikt renderFillin)
    - vrijezin: [{infinitief}]                     -> niveau *** (AI-gecontroleerd) */
 
@@ -22,6 +23,13 @@ const HANDBOEK_DATA = {
       {infinitief:"vertoeven", antwoord:"vertoef"},
       {infinitief:"vervelen", antwoord:"verveel"},
       {infinitief:"antwoorden", antwoord:"antwoord"}
+    ],
+    persoonsvorm: [
+      {prompt:"(spelen) Hij ... buiten met zijn vrienden.", answer:"speelt", level:"*"},
+      {prompt:"(oefenen) Jij ... elke dag piano.", answer:"oefent", level:"*"},
+      {prompt:"(beloven) Papa ... een verrassing.", answer:"belooft", level:"*"},
+      {prompt:"(antwoorden) De leerling ... goed op de vraag.", answer:"antwoordt", level:"*"},
+      {prompt:"(branden) De kaars ... de hele avond.", answer:"brandt", level:"*"}
     ],
     fillin: [
       {prefix:"(bespieden) Karel", suffix:"zijn kleine broer.", answer:"bespiedt", options:["bespied","bespiedt","bespieden"]},

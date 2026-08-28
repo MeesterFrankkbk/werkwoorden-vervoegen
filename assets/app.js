@@ -158,9 +158,9 @@ function renderTeacherPanel(){
   const allInCard = `<div class="card topic-allin" style="cursor:default">
       <h2>🧠 ${reeksNaam('allin','1')} <button class="renamebtn" onclick="hernoemReeks('allin','1')">✏️</button></h2>
       <p style="font-size:.85rem;color:#555;margin-top:0">Dit onderdeel heeft (nog) geen vaste inhoud zoals de andere — het stelt telkens een nieuwe, willekeurige selectie samen uit alle zinnen. Er komen later mogelijk meerdere van deze reeksen; elk krijgt dan een eigen naam.</p>
-      <div style="padding:.5rem .8rem;border:2px solid var(--line);border-radius:10px;margin-top:.4rem">★ 15 zinnen (niveau *)</div>
-      <div style="padding:.5rem .8rem;border:2px solid var(--line);border-radius:10px;margin-top:.4rem">★★ 20 zinnen (+ niveau **)</div>
-      <div style="padding:.5rem .8rem;border:2px solid var(--line);border-radius:10px;margin-top:.4rem">★★★ 25 zinnen (+ niveau ***)</div>
+      <div style="padding:.5rem .8rem;border:2px solid var(--line);border-radius:10px;margin-top:.4rem">★ 15 herkennen + 5 dictee (20 zinnen)</div>
+      <div style="padding:.5rem .8rem;border:2px solid var(--line);border-radius:10px;margin-top:.4rem">★★ 20 herkennen + 10 dictee (30 zinnen)</div>
+      <div style="padding:.5rem .8rem;border:2px solid var(--line);border-radius:10px;margin-top:.4rem">★★★ 25 herkennen + 15 dictee (40 zinnen)</div>
     </div>`;
   root.innerHTML = `
     <button class="backbtn" onclick="renderHome()">← Terug</button>
@@ -570,7 +570,14 @@ function buildSequence(key, setNum, maxLevel){
   s.explore.forEach(ex=> seq.push({type:'explore', data:ex}));
   s.identify.filter(it=>order[it.level]<=cap).forEach(it=> seq.push({type:'identify', data:it}));
   s.fillin.filter(it=>order[it.level]<=cap).forEach(it=> seq.push({type:'fillin', data:it}));
-  if(cap>=3) s.written.forEach(it=> seq.push({type:'written', data:it}));
+  if(cap===1){
+    // ook op het meest eenvoudige niveau al 1 typ-oefening (dictee), zodat elke leerling écht typt
+    shuffle([...s.written]).slice(0,1).forEach(it=> seq.push({type:'dictee', data:it}));
+  } else if(cap===2){
+    shuffle([...s.written]).slice(0,2).forEach(it=> seq.push({type:'dictee', data:it}));
+  } else if(cap>=3){
+    s.written.forEach(it=> seq.push({type:'written', data:it}));
+  }
   seq.push({type:'match', data:buildMatchPairs(s)});
   seq.push({type:'end'});
   return seq;
@@ -631,12 +638,14 @@ function renderStep(){
     inner = renderReport();
   } else if(step.type==='classify'){
     inner = streakBadge() + renderClassify(step.data);
+  } else if(step.type==='dictee'){
+    inner = streakBadge() + renderDictee(step.data);
   }
   root.innerHTML = `
     <button class="backbtn" onclick="${run.backAction}">← Stoppen</button>
     ${progressHTML()}
     <div class="exercise-box" style="border-color:${run.color}">${inner}</div>`;
-  if(step.type==='written'){
+  if(step.type==='written' || step.type==='dictee'){
     const inp = document.getElementById('writeInput');
     if(inp) inp.focus();
   }
@@ -954,27 +963,49 @@ function buildAllInSet(maxLevel){
   return picked;
 }
 
+/* Dictee-blok: 5 zinnen per niveau extra (cumulatief), telkens getypt i.p.v. herkend.
+   Gebruikt dezelfde bron als de "Zelf schrijven"-oefening (infinitief + te typen vorm),
+   over alle onderdelen (tt/vt/geenpv) heen gemengd. */
+function buildDicteePool(){
+  const pool = [];
+  Object.keys(WERKWOORDEN_DATA).forEach(key=>{
+    Object.keys(WERKWOORDEN_DATA[key].sets).forEach(setNum=>{
+      const s = WERKWOORDEN_DATA[key].sets[setNum];
+      s.written.forEach(it=> pool.push({ prompt: it.prompt, answer: it.answer }));
+    });
+  });
+  return pool;
+}
+function buildDicteeSet(maxLevel){
+  const n = maxLevel==='***' ? 15 : maxLevel==='**' ? 10 : 5;
+  return shuffle(buildDicteePool()).slice(0, n);
+}
+
 function renderAllInNiveau(){
   root.innerHTML = `
     <button class="backbtn" onclick="renderHome()">← Terug</button>
     <h2>🧠 ${reeksNaam('allin','1')} ${state.teacherMode ? `<button class="renamebtn" onclick="hernoemReeks('allin','1')">✏️</button>` : ''}</h2>
-    <p>Kies je niveau. Hoe meer sterren, hoe meer zinnen je moet herkennen.</p>
+    <p>Kies je niveau. Hoe meer sterren, hoe meer zinnen je moet herkennen én typen (dictee).</p>
     <div class="niveau-grid">
       <div class="niveau-card" style="border-color:#7c3aed" onclick="renderAllIn('*')">
-        <b>★</b><p>15 zinnen<br>(niveau *)</p>
+        <b>★</b><p>15 herkennen + 5 dictee<br>(20 zinnen)</p>
       </div>
       <div class="niveau-card" style="border-color:#7c3aed" onclick="renderAllIn('**')">
-        <b>★★</b><p>20 zinnen<br>(+ niveau **)</p>
+        <b>★★</b><p>20 herkennen + 10 dictee<br>(30 zinnen)</p>
       </div>
       <div class="niveau-card" style="border-color:#7c3aed" onclick="renderAllIn('***')">
-        <b>★★★</b><p>25 zinnen<br>(+ niveau ***)</p>
+        <b>★★★</b><p>25 herkennen + 15 dictee<br>(40 zinnen)</p>
       </div>
     </div>`;
 }
 
 function renderAllIn(level){
-  const pool = shuffle(buildAllInSet(level));
-  run = { key:'allin', setNum:'-', level:level, seq: pool.map(p=>({type:'classify', data:p})), i:0, correct:0, total:0, wrong:[], good:[],
+  const classifyPool = shuffle(buildAllInSet(level));
+  const dicteePool = buildDicteeSet(level);
+  const seq = classifyPool.map(p=>({type:'classify', data:p}));
+  seq.push({type:'info', text:'Nu volgt het dictee-gedeelte: luister goed en typ telkens de juiste vorm van het werkwoord.'});
+  dicteePool.forEach(it=> seq.push({type:'dictee', data:it}));
+  run = { key:'allin', setNum:'-', level:level, seq, i:0, correct:0, total:0, wrong:[], good:[],
     color:'#7c3aed', title:reeksNaam('allin','1'), streak:0, bestStreak:0,
     backAction:`renderAllInNiveau()` };
   run.seq.unshift({type:'info', text:'Is het tegenwoordige tijd, verleden tijd of geen persoonsvorm (voltooid deelwoord/bijvoeglijk naamwoord)? Bekijk gerust eerst de spiekbrief.'});
@@ -1007,6 +1038,55 @@ function checkClassify(key){
     run.wrong.push({vraag:step.data.text, juist:classifyLabels[step.data.label].name});
     run.streak = 0;
     fb.textContent='Dit was eigenlijk: '+classifyLabels[step.data.label].name; fb.className='feedback no';
+    fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+  }
+}
+
+/* ---------- dictee (All-in): altijd hoorbaar, de leerling typt zelf ---------- */
+function renderDictee(data){
+  run.total++;
+  let verbHint = null;
+  let text = (data.prompt||'').replace(/^\d+\)\s*/, '');
+  const m = text.match(/^\(([^)]+)\)\s*/);
+  if(m){ verbHint = m[1]; text = text.replace(/^\([^)]+\)\s*/, ''); }
+  const playDictee = ()=>{
+    if(!window.speechSynthesis) return;
+    try{
+      window.speechSynthesis.cancel();
+      if(verbHint) window.speechSynthesis.speak(mkUtterance('Werkwoord: ' + verbHint + '.'));
+      text.split('...').filter(p=>p && p.trim()).forEach(p=> window.speechSynthesis.speak(mkUtterance(p.trim())));
+    }catch(e){}
+  };
+  window._dicteePlay = playDictee;
+  // dictee wordt ALTIJD hoorbaar afgespeeld, los van de voorlezen-schakelaar
+  setTimeout(playDictee, 300);
+  return `<span class="level-badge" style="background:#ede9fe;color:#5b21b6">Dictee</span>
+    <p class="prompt">Luister goed en schrijf de juiste vorm van het werkwoord.</p>
+    <p class="prompt">${data.prompt}</p>
+    <button class="iconbtn" onclick="window._dicteePlay()">🔊 Opnieuw beluisteren</button>
+    <div class="writeform" style="margin-top:.8rem">
+      <input type="text" id="writeInput" autocomplete="off" onkeydown="if(event.key==='Enter')checkDictee()">
+      <button class="checkbtn" onclick="checkDictee()">Controleer</button>
+    </div>
+    <div id="fb" class="feedback"></div>`;
+}
+function checkDictee(){
+  const data = run.seq[run.i].data;
+  const inputEl = document.getElementById('writeInput');
+  const val = inputEl.value.trim();
+  const ok = val.toLowerCase() === data.answer.toLowerCase();
+  const fb = document.getElementById('fb');
+  inputEl.disabled = true;
+  document.querySelector('.checkbtn').disabled = true;
+  if(ok){
+    run.correct++; run.good.push(data.answer);
+    run.streak++; run.bestStreak = Math.max(run.bestStreak, run.streak);
+    fb.textContent='Mooi zo! ✅'; fb.className='feedback ok';
+    autoNext(900);
+  } else {
+    run.wrong.push({vraag:data.prompt, juist:data.answer});
+    run.streak = 0;
+    fb.textContent='Het juiste antwoord is: '+data.answer; fb.className='feedback no';
     fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
   }
 }

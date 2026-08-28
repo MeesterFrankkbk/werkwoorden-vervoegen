@@ -840,7 +840,9 @@ function flipMatch(idx){
   if(run._matchFlipped.length>=2) return;
   cardEl.classList.add('flipped');
   cardEl.textContent = run._matchCards[idx].text;
-  speakForce(run._matchCards[idx].text);
+  // onderwerp-kaarten tonen een "__" als visuele plekhouder (bv. "__ de leerlingen?");
+  // dat mag niet letterlijk als "onderstrepingsteken" voorgelezen worden.
+  speakForce(run._matchCards[idx].text.replace(/_+/g, '').replace(/\s+/g,' ').trim());
   run._matchFlipped.push(idx);
   if(run._matchFlipped.length===2){
     const [a,b] = run._matchFlipped;
@@ -1058,12 +1060,16 @@ function renderDictee(data){
     }catch(e){}
   };
   window._dicteePlay = playDictee;
-  // dictee wordt ALTIJD hoorbaar afgespeeld, los van de voorlezen-schakelaar
-  setTimeout(playDictee, 300);
+  // dictee wordt hoorbaar afgespeeld, los van de voorlezen-schakelaar. Meteen (synchroon) afspelen,
+  // niet via setTimeout: veel browsers (vooral op tablets/telefoons) blokkeren geluid dat niet
+  // rechtstreeks binnen dezelfde klik gestart wordt. De knop hieronder werkt in elk geval altijd,
+  // want die klik telt zelf als een nieuwe, geldige gebruikersactie.
+  playDictee();
   return `<span class="level-badge" style="background:#ede9fe;color:#5b21b6">Dictee</span>
     <p class="prompt">Luister goed en schrijf de juiste vorm van het werkwoord.</p>
     <p class="prompt">${data.prompt}</p>
-    <button class="iconbtn" onclick="window._dicteePlay()">🔊 Opnieuw beluisteren</button>
+    <button class="iconbtn" onclick="window._dicteePlay()">🔊 Beluister deze zin</button>
+    <span style="font-size:.8rem;color:#888;margin-left:.4rem">(klik hier als je niets hoorde)</span>
     <div class="writeform" style="margin-top:.8rem">
       <input type="text" id="writeInput" autocomplete="off" onkeydown="if(event.key==='Enter')checkDictee()">
       <button class="checkbtn" onclick="checkDictee()">Controleer</button>

@@ -231,7 +231,7 @@ async function generateAIExercises(){
     });
     const data = await res.json();
     if(!res.ok){
-      status.textContent = '❌ ' + (data.error || 'Er ging iets mis.');
+      status.textContent = '❌ ' + (data.error || 'Er ging iets mis.') + (data.details ? ' — ' + data.details : '');
       status.style.color = '#b91c1c';
       return;
     }

@@ -74,22 +74,37 @@ const HANDBOEK_DATA = {
     },
     /* niveau *: herkennen of een werkwoord van klank verandert in de verleden tijd (cirkel) */
     identify: [
-      {level:"*", prompt:"koken", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1},
-      {level:"*", prompt:"eten", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0},
-      {level:"*", prompt:"bereiden", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1},
-      {level:"*", prompt:"bakken", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1},
-      {level:"*", prompt:"kopen", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0},
-      {level:"*", prompt:"slapen", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0},
-      {level:"*", prompt:"vinden", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0},
-      {level:"*", prompt:"zoeken", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0},
-      {level:"*", prompt:"beloven", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1},
-      {level:"*", prompt:"bedenken", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0}
+      {level:"*", prompt:"koken", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"koken → kookte"},
+      {level:"*", prompt:"eten", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"eten → at"},
+      {level:"*", prompt:"bereiden", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"bereiden → bereidde"},
+      {level:"*", prompt:"bakken", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"bakken → bakte"},
+      {level:"*", prompt:"kopen", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"kopen → kocht"},
+      {level:"*", prompt:"slapen", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"slapen → sliep"},
+      {level:"*", prompt:"vinden", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"vinden → vond"},
+      {level:"*", prompt:"zoeken", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"zoeken → zocht"},
+      {level:"*", prompt:"beloven", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"beloven → beloofde"},
+      {level:"*", prompt:"bedenken", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"bedenken → bedacht"}
     ],
-    /* niveau **: getypte verleden tijd in een zin (vierkant, oefening 3) */
+    /* niveau *: kies de juiste verleden vorm in de zin (meerkeuze, extra uitdaging naast het herkennen) */
+    fillin: [
+      {level:"*", prefix:"(koken) Mama", suffix:"gisteren pasta.", answer:"kookte", options:["kookte","kookde","koken"]},
+      {level:"*", prefix:"(bakken) Papa", suffix:"een taart voor mijn verjaardag.", answer:"bakte", options:["bakte","bakkte","bakken"]},
+      {level:"*", prefix:"(kopen) Ik", suffix:"een nieuwe fiets.", answer:"kocht", options:["kocht","kopte","kochtte"]},
+      {level:"*", prefix:"(bereiden) De chef", suffix:"een heerlijk gerecht.", answer:"bereidde", options:["bereidde","bereide","bereidte"]},
+      {level:"*", prefix:"(beloven) Zij", suffix:"het nooit meer te doen.", answer:"beloofde", options:["beloofde","beloofte","belofde"]},
+      {level:"*", prefix:"(zoeken) Wij", suffix:"de hele tuin af.", answer:"zochten", options:["zochten","zoekten","zoeken"]},
+      {level:"**", prefix:"(slapen) De baby's", suffix:"de hele namiddag.", answer:"sliepen", options:["sliepen","slaapten","slapten"]},
+      {level:"**", prefix:"(lopen) Ricardo", suffix:"zondag een goede wedstrijd.", answer:"liep", options:["liep","loopte","leep"]},
+      {level:"**", prefix:"(vinden) De toeschouwers", suffix:"het een spannende wedstrijd.", answer:"vonden", options:["vonden","vindden","vindten"]},
+      {level:"**", prefix:"(zien) Hij", suffix:"een grote giraf langs de kant van de weg.", answer:"zag", options:["zag","ziede","zaage"]}
+    ],
+    /* niveau *: enkele typ-oefeningen (naast de stam-oefening in Exploreren), niveau ** = de rest bij "Heden en verleden" */
     persoonsvorm: [
-      {prompt:"(slapen) De baby's ... de hele namiddag.", answer:"sliepen", level:"**"},
-      {prompt:"(lopen) Ricardo ... zondag een goede wedstrijd.", answer:"liep", level:"**"},
-      {prompt:"(kopen) De kok ... zijn ingrediënten op de markt.", answer:"kocht", level:"**"},
+      {prompt:"(eten) Hij ... een grote pizza.", answer:"at", level:"*"},
+      {prompt:"(slapen) De hond ... de hele namiddag.", answer:"sliep", level:"*"},
+      {prompt:"(vinden) Zij ... haar sleutels terug.", answer:"vond", level:"*"},
+      {prompt:"(bedenken) De juf ... een leuk spel.", answer:"bedacht", level:"*"},
+      {prompt:"(kopen) Papa ... een cadeau voor mama.", answer:"kocht", level:"*"},
       {prompt:"(bedenken) Hij ... een lekker recept.", answer:"bedacht", level:"**"},
       {prompt:"(zijn) Gisteren ... wij niet thuis.", answer:"waren", level:"**"},
       {prompt:"(hebben) Wij ... een mooie prijs gewonnen.", answer:"hadden", level:"**"},

@@ -796,6 +796,7 @@ function checkFillin(el, idx){
 /* written (type your own answer) */
 function renderWritten(data){
   run.total++;
+  const lvl = data.level || '***';
   setTimeout(()=>{
     let text = data.prompt.replace(/^\d+\)\s*/, '');
     let verbHint = null;
@@ -803,7 +804,7 @@ function renderWritten(data){
     if(m){ verbHint = m[1]; text = text.replace(/^\([^)]+\)\s*/, ''); }
     speakQueueParts(verbHint, text.split('...'));
   },50);
-  return `<span class="level-badge" style="background:${levelColors['***']};color:${levelText['***']}">***</span>
+  return `<span class="level-badge" style="background:${levelColors[lvl]};color:${levelText[lvl]}">${lvl}</span>
     <p class="prompt">Schrijf de juiste vorm van het werkwoord.</p>
     <p class="prompt">${data.prompt}</p>
     <div class="writeform"><input type="text" id="writeInput" autocomplete="off" onkeydown="if(event.key==='Enter')checkWritten()"><button class="checkbtn" onclick="checkWritten()">Controleer</button></div>
@@ -1012,7 +1013,7 @@ function renderHandboekNiveau(code){
     <p>Kies je niveau. Hoe meer sterren, hoe meer opdrachten je maakt.</p>
     <div class="niveau-grid">
       <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','*')">
-        <b>★</b><p>Stam schrijven</p>
+        <b>★</b><p>Stam schrijven + persoonsvorm invullen</p>
       </div>
       <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','**')">
         <b>★★</b><p>+ juiste vorm invullen</p>
@@ -1030,6 +1031,7 @@ function startHandboekRun(code, level){
   const seq = [];
   seq.push({type:'info', text:`Welkom bij ${reeksNaam('hb_'+code,'1')}.`});
   (lesData.stam||[]).forEach(it=> seq.push({type:'stam', data:it}));
+  (lesData.persoonsvorm||[]).forEach(it=> seq.push({type:'written', data:it}));
   if(cap>=2) (lesData.fillin||[]).forEach(it=> seq.push({type:'fillin', data:{...it, level:'**'}}));
   if(cap>=3) (lesData.vrijezin||[]).forEach(it=> seq.push({type:'vrijezin', data:it}));
   seq.push({type:'end'});

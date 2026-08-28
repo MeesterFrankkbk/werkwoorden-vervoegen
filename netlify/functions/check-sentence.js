@@ -14,8 +14,13 @@ exports.handler = async function (event) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Ongeldige aanvraag.' }) };
   }
 
-  const { infinitief, zin } = payload;
-  if (!infinitief || !zin || !zin.trim()) {
+  const { infinitief, zin, opdracht, tekst } = payload;
+  const isVrijeTekst = !!opdracht;
+  if(isVrijeTekst){
+    if(!tekst || !tekst.trim()){
+      return { statusCode: 400, body: JSON.stringify({ error: 'Schrijf eerst een tekst.' }) };
+    }
+  } else if (!infinitief || !zin || !zin.trim()) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Geef zowel het werkwoord als een zin op.' }) };
   }
   const apiKey = process.env.GEMINI_API_KEY;
@@ -23,7 +28,18 @@ exports.handler = async function (event) {
     return { statusCode: 500, body: JSON.stringify({ error: 'GEMINI_API_KEY ontbreekt op de server.' }) };
   }
 
-  const prompt = `Je bent een vriendelijke Nederlandse taalleerkracht die het werk van een leerling (9-13 jaar, Vlaanderen) nakijkt.
+  const prompt = isVrijeTekst
+    ? `Je bent een vriendelijke Nederlandse taalleerkracht die het werk van een leerling (9-13 jaar, Vlaanderen) nakijkt.
+
+De opdracht voor de leerling was: "${opdracht.replace(/"/g, "'")}"
+
+De tekst van de leerling is: "${tekst.replace(/"/g, "'")}"
+
+Controleer vooral of de gevraagde werkwoordstijd correct en consequent gebruikt wordt, en of de zinnen grammaticaal correct zijn. Wees niet te streng over de inhoud zelf (fantasie mag).
+
+Antwoord ALLEEN met geldige JSON, zonder uitleg erbuiten:
+{"correct": true of false, "feedback": "een kort, vriendelijk, opbouwend zinnetje voor de leerling (max 2 zinnen), in het Nederlands"}`
+    : `Je bent een vriendelijke Nederlandse taalleerkracht die het werk van een leerling (9-13 jaar, Vlaanderen) nakijkt.
 
 De leerling kreeg de opdracht: gebruik het werkwoord "${infinitief}" in een goede, correcte zin, met een persoonsvorm (vervoegde vorm) van dat werkwoord.
 

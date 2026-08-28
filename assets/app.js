@@ -757,9 +757,10 @@ function checkIdentify(el, idx){
     fb.textContent='Mooi zo! ✅'; fb.className='feedback ok';
     autoAdvance('Juist! '+data.options[data.correctIndex]);
   } else {
-    run.wrong.push({vraag:data.prompt, juist:data.options[data.correctIndex]});
+    const extra = data.extraInfo ? ' ('+data.extraInfo+')' : '';
+    run.wrong.push({vraag:data.prompt, juist:data.options[data.correctIndex]+extra});
     run.streak = 0;
-    fb.textContent='Bijna! Het juiste antwoord is: '+data.options[data.correctIndex]; fb.className='feedback no'; speak(fb.textContent);
+    fb.textContent='Bijna! Het juiste antwoord is: '+data.options[data.correctIndex]+extra; fb.className='feedback no'; speak(fb.textContent);
     fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
   }
 }
@@ -1018,6 +1019,7 @@ function renderHandboekNiveau(code){
     if(lvl==='*'){
       if(lesData.stam) parts.push('stam schrijven');
       if((lesData.identify||[]).some(it=>it.level==='*')) parts.push('klankverandering herkennen');
+      if((lesData.fillin||[]).some(it=>it.level==='*')) parts.push('juiste vorm kiezen');
       if((lesData.persoonsvorm||[]).some(it=>(it.level||'*')==='*')) parts.push('persoonsvorm invullen');
     } else if(lvl==='**'){
       if(lesData.fillin) parts.push('zinnen aanvullen');
@@ -1058,7 +1060,7 @@ function startHandboekRun(code, level){
   (lesData.identify||[]).filter(it=>order[it.level]<=cap).forEach(it=> seq.push({type:'identify', data:it}));
   (lesData.persoonsvorm||[]).filter(it=>order[it.level||'*']<=cap).forEach(it=> seq.push({type:'written', data:it}));
   if(lesData.stam && lesData.stam.length>=3) seq.push({type:'match', data: lesData.stam.map(it=>({subject:it.infinitief, form:it.antwoord}))});
-  if(cap>=2) (lesData.fillin||[]).forEach(it=> seq.push({type:'fillin', data:{...it, level:'**'}}));
+  (lesData.fillin||[]).filter(it=>order[it.level||'**']<=cap).forEach(it=> seq.push({type:'fillin', data:{...it, level: it.level||'**'}}));
   if(cap>=2) (lesData.zinvt||[]).forEach(it=> seq.push({type:'zinvt', data:it}));
   if(cap>=3) (lesData.vrijezin||[]).forEach(it=> seq.push({type:'vrijezin', data:it}));
   if(cap>=3 && lesData.vrijetekst) seq.push({type:'vrijetekst', data:lesData.vrijetekst});

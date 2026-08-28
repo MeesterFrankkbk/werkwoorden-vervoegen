@@ -54,12 +54,12 @@ Antwoord ALLEEN met geldige JSON in dit exacte formaat, zonder verdere uitleg of
 {"exercises": [{"prefix": "...", "suffix": "...", "answer": "...", "options": ["...", "...", "..."], "infinitief": "..."}]}`;
 
   const model = 'gemini-2.5-flash';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { responseMimeType: 'application/json', temperature: 0.8 }
@@ -68,7 +68,8 @@ Antwoord ALLEEN met geldige JSON in dit exacte formaat, zonder verdere uitleg of
 
     if (!res.ok) {
       const errText = await res.text();
-      return { statusCode: 502, body: JSON.stringify({ error: 'De AI-service gaf een fout terug.', details: errText.slice(0, 400) }) };
+      console.error('Gemini API fout', res.status, errText.slice(0, 1000));
+      return { statusCode: 502, body: JSON.stringify({ error: `AI-service gaf fout ${res.status} terug.`, details: errText.slice(0, 400) }) };
     }
 
     const data = await res.json();
@@ -77,13 +78,15 @@ Antwoord ALLEEN met geldige JSON in dit exacte formaat, zonder verdere uitleg of
       && data.candidates[0].content.parts[0].text;
 
     if (!text) {
-      return { statusCode: 502, body: JSON.stringify({ error: 'Geen antwoord ontvangen van de AI.' }) };
+      console.error('Geen tekst in Gemini-antwoord', JSON.stringify(data).slice(0, 1000));
+      return { statusCode: 502, body: JSON.stringify({ error: 'Geen antwoord ontvangen van de AI.', details: JSON.stringify(data).slice(0,300) }) };
     }
 
     let parsed;
     try {
       parsed = JSON.parse(text);
     } catch (e) {
+      console.error('Kon AI-antwoord niet parsen', text.slice(0, 500));
       return { statusCode: 502, body: JSON.stringify({ error: 'Het AI-antwoord kon niet gelezen worden.', raw: text.slice(0, 400) }) };
     }
 
@@ -97,6 +100,7 @@ Antwoord ALLEEN met geldige JSON in dit exacte formaat, zonder verdere uitleg of
 
     return { statusCode: 200, body: JSON.stringify({ exercises, level, tense }) };
   } catch (err) {
+    console.error('Onverwachte fout in generate-exercises', err);
     return { statusCode: 500, body: JSON.stringify({ error: 'Onverwachte fout: ' + err.message }) };
   }
 };

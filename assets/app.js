@@ -659,12 +659,18 @@ function renderStep(){
     inner = streakBadge() + renderStam(step.data);
   } else if(step.type==='vrijezin'){
     inner = streakBadge() + renderVrijeZin(step.data);
+  } else if(step.type==='zinvt'){
+    inner = streakBadge() + renderZinVT(step.data);
+  } else if(step.type==='vrijetekst'){
+    inner = renderVrijeTekst(step.data);
+  } else if(step.type==='brontekst'){
+    inner = renderBrontekst(step.data);
   }
   root.innerHTML = `
     <button class="backbtn" onclick="${run.backAction}">← Stoppen</button>
     ${progressHTML()}
     <div class="exercise-box" style="border-color:${run.color}">${inner}</div>`;
-  if(step.type==='written' || step.type==='dictee' || step.type==='stam' || step.type==='vrijezin'){
+  if(step.type==='written' || step.type==='dictee' || step.type==='stam' || step.type==='vrijezin' || step.type==='zinvt'){
     const inp = document.getElementById('writeInput');
     if(inp) inp.focus();
   }
@@ -1007,19 +1013,36 @@ function buildDicteeSet(maxLevel){
 function renderHandboekNiveau(code){
   const lesData = HANDBOEK_DATA[code];
   const t = WERKWOORDEN_DATA[lesData.tense];
+  const desc = lvl => {
+    const parts = [];
+    if(lvl==='*'){
+      if(lesData.stam) parts.push('stam schrijven');
+      if((lesData.identify||[]).some(it=>it.level==='*')) parts.push('klankverandering herkennen');
+      if((lesData.persoonsvorm||[]).some(it=>(it.level||'*')==='*')) parts.push('persoonsvorm invullen');
+    } else if(lvl==='**'){
+      if(lesData.fillin) parts.push('zinnen aanvullen');
+      if((lesData.persoonsvorm||[]).some(it=>it.level==='**')) parts.push('verleden tijd invullen');
+      if(lesData.zinvt) parts.push('hele zin herschrijven');
+    } else {
+      if(lesData.vrijezin) parts.push('zelf zinnen schrijven');
+      if(lesData.vrijetekst) parts.push('kort verslag schrijven');
+      parts.push('AI-gecontroleerd');
+    }
+    return parts.join(' + ') || 'oefeningen';
+  };
   root.innerHTML = `
     <button class="backbtn" onclick="renderTopic('${lesData.tense}')">← Terug</button>
     <h2>${t.title} — ${reeksNaam('hb_'+code,'1')} ${state.teacherMode ? `<button class="renamebtn" onclick="hernoemReeks('hb_${code}','1')">✏️</button>` : ''}</h2>
     <p>Kies je niveau. Hoe meer sterren, hoe meer opdrachten je maakt.</p>
     <div class="niveau-grid">
       <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','*')">
-        <b>★</b><p>Stam schrijven + persoonsvorm invullen</p>
+        <b>★</b><p>${desc('*')}</p>
       </div>
       <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','**')">
-        <b>★★</b><p>+ juiste vorm invullen</p>
+        <b>★★</b><p>${desc('**')}</p>
       </div>
       <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','***')">
-        <b>★★★</b><p>+ zelf een zin schrijven (AI-gecontroleerd)</p>
+        <b>★★★</b><p>${desc('***')}</p>
       </div>
     </div>`;
 }
@@ -1030,15 +1053,27 @@ function startHandboekRun(code, level){
   const t = WERKWOORDEN_DATA[lesData.tense];
   const seq = [];
   seq.push({type:'info', text:`Welkom bij ${reeksNaam('hb_'+code,'1')}.`});
+  if(lesData.brontekst) seq.push({type:'brontekst', data:lesData.brontekst});
   (lesData.stam||[]).forEach(it=> seq.push({type:'stam', data:it}));
-  (lesData.persoonsvorm||[]).forEach(it=> seq.push({type:'written', data:it}));
+  (lesData.identify||[]).filter(it=>order[it.level]<=cap).forEach(it=> seq.push({type:'identify', data:it}));
+  (lesData.persoonsvorm||[]).filter(it=>order[it.level||'*']<=cap).forEach(it=> seq.push({type:'written', data:it}));
+  if(lesData.stam && lesData.stam.length>=3) seq.push({type:'match', data: lesData.stam.map(it=>({subject:it.infinitief, form:it.antwoord}))});
   if(cap>=2) (lesData.fillin||[]).forEach(it=> seq.push({type:'fillin', data:{...it, level:'**'}}));
+  if(cap>=2) (lesData.zinvt||[]).forEach(it=> seq.push({type:'zinvt', data:it}));
   if(cap>=3) (lesData.vrijezin||[]).forEach(it=> seq.push({type:'vrijezin', data:it}));
+  if(cap>=3 && lesData.vrijetekst) seq.push({type:'vrijetekst', data:lesData.vrijetekst});
   seq.push({type:'end'});
   run = { key:lesData.tense, setNum:'hb_'+code, level, seq, i:0, correct:0, total:0, wrong:[], good:[],
     color:t.color, title:reeksNaam('hb_'+code,'1'), streak:0, bestStreak:0,
     backAction:`renderHandboekNiveau('${code}')` };
   renderStep();
+}
+function renderBrontekst(data){
+  return `<span class="level-badge" style="background:#eef;color:#334">Tekst</span>
+    <h3>${data.titel}</h3>
+    <p style="line-height:1.7">${data.tekst}</p>
+    <button class="iconbtn" onclick="speakForce(${JSON.stringify(data.tekst)})">🔊 Lees voor</button>
+    <br><button class="nextbtn" style="margin-top:1rem" onclick="nextStep()">Verder ▶</button>`;
 }
 function renderStam(data){
   run.total++;
@@ -1112,6 +1147,85 @@ async function checkVrijeZin(){
       fb.textContent = '✏️ ' + (result.feedback || 'Dit kan nog beter.'); fb.className='feedback no';
       fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
     }
+  }catch(e){
+    fb.textContent = '❌ Kon de AI-functie niet bereiken.'; fb.className='feedback no';
+    fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+  }
+}
+
+/* zinvt: een volledige zin herschrijven (bv. tegenwoordige tijd -> verleden tijd), getypt */
+function renderZinVT(data){
+  run.total++;
+  return `<span class="level-badge" style="background:${levelColors['**']};color:${levelText['**']}">**</span>
+    <p class="prompt">Schrijf deze zin in de verleden tijd:</p>
+    <p class="prompt"><b>${data.zin}</b></p>
+    <div class="writeform">
+      <input type="text" id="writeInput" autocomplete="off" style="width:340px" onkeydown="if(event.key==='Enter')checkZinVT()">
+      <button class="checkbtn" onclick="checkZinVT()">Controleer</button>
+    </div>
+    <div id="fb" class="feedback"></div>`;
+}
+function checkZinVT(){
+  const data = run.seq[run.i].data;
+  const inputEl = document.getElementById('writeInput');
+  const val = inputEl.value.trim().replace(/\s+/g,' ');
+  const target = data.antwoord.trim().replace(/\s+/g,' ');
+  const ok = val.toLowerCase().replace(/[.!?]$/,'') === target.toLowerCase().replace(/[.!?]$/,'');
+  const fb = document.getElementById('fb');
+  inputEl.disabled = true;
+  document.querySelector('.checkbtn').disabled = true;
+  if(ok){
+    run.correct++; run.good.push(data.antwoord);
+    run.streak++; run.bestStreak = Math.max(run.bestStreak, run.streak);
+    fb.textContent='Mooi zo! ✅'; fb.className='feedback ok';
+    autoNext(1000);
+  } else {
+    run.wrong.push({vraag:data.zin, juist:data.antwoord});
+    run.streak = 0;
+    fb.textContent='De juiste zin is: '+data.antwoord; fb.className='feedback no';
+    fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+  }
+}
+
+/* vrijetekst: een kort, AI-gecontroleerd tekstje (bv. een verslag), i.p.v. één losse zin */
+function renderVrijeTekst(data){
+  run.total++;
+  return `<span class="level-badge" style="background:${levelColors['***']};color:${levelText['***']}">***</span>
+    <p class="prompt">${data.opdracht}</p>
+    <textarea id="vrijeTekstInput" rows="5" style="width:100%;max-width:500px;padding:.6rem;border:2px solid var(--line);border-radius:10px;font-family:inherit;font-size:1rem"></textarea>
+    <div style="margin-top:.6rem"><button class="checkbtn" onclick="checkVrijeTekst()">Laat nakijken</button></div>
+    <div id="fb" class="feedback"></div>`;
+}
+async function checkVrijeTekst(){
+  const inputEl = document.getElementById('vrijeTekstInput');
+  const tekst = inputEl.value.trim();
+  const data = run.seq[run.i].data;
+  const fb = document.getElementById('fb');
+  if(!tekst){ fb.textContent='Schrijf eerst je tekst.'; fb.className='feedback no'; return; }
+  inputEl.disabled = true;
+  document.querySelector('.checkbtn').disabled = true;
+  fb.textContent = '⏳ Even nakijken...'; fb.className = 'feedback';
+  try{
+    const res = await fetch('/.netlify/functions/check-sentence', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ opdracht: data.opdracht, tekst })
+    });
+    const result = await res.json();
+    if(!res.ok){
+      fb.textContent = '❌ Kon niet nakijken: ' + (result.error || 'onbekende fout'); fb.className='feedback no';
+      fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+      return;
+    }
+    if(result.correct){
+      run.correct++; run.good.push('kort verslag');
+      run.streak++; run.bestStreak = Math.max(run.bestStreak, run.streak);
+      fb.textContent = '✅ ' + (result.feedback || 'Goed gedaan!'); fb.className='feedback ok';
+    } else {
+      run.wrong.push({vraag:'kort verslag', juist: result.feedback||''});
+      run.streak = 0;
+      fb.textContent = '✏️ ' + (result.feedback || 'Dit kan nog beter.'); fb.className='feedback no';
+    }
+    fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
   }catch(e){
     fb.textContent = '❌ Kon de AI-functie niet bereiken.'; fb.className='feedback no';
     fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');

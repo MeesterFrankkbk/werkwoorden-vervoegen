@@ -559,6 +559,11 @@ function renderNiveau(key, setNum){
 }
 
 /* ---------- exercise run engine ---------- */
+function buildTopicDicteePool(t){
+  // combineert de "Zelf schrijven"-zinnen van reeks 1 én 2 van dit onderdeel (2x4=8 unieke zinnen),
+  // zodat er bij niveau * en ** voldoende verschillende dictee-zinnen beschikbaar zijn.
+  return [...t.sets['1'].written, ...t.sets['2'].written];
+}
 function buildSequence(key, setNum, maxLevel){
   const order = {'*':1,'**':2,'***':3};
   const cap = order[maxLevel];
@@ -571,10 +576,10 @@ function buildSequence(key, setNum, maxLevel){
   s.identify.filter(it=>order[it.level]<=cap).forEach(it=> seq.push({type:'identify', data:it}));
   s.fillin.filter(it=>order[it.level]<=cap).forEach(it=> seq.push({type:'fillin', data:it}));
   if(cap===1){
-    // ook op het meest eenvoudige niveau al 1 typ-oefening (dictee), zodat elke leerling écht typt
-    shuffle([...s.written]).slice(0,1).forEach(it=> seq.push({type:'dictee', data:it}));
+    // ook op het meest eenvoudige niveau al 5 typ-oefeningen (dictee), zodat elke leerling écht typt
+    shuffle(buildTopicDicteePool(t)).slice(0,5).forEach(it=> seq.push({type:'dictee', data:it}));
   } else if(cap===2){
-    shuffle([...s.written]).slice(0,2).forEach(it=> seq.push({type:'dictee', data:it}));
+    shuffle(buildTopicDicteePool(t)).forEach(it=> seq.push({type:'dictee', data:it})); // alle 8 beschikbare (reeks 1+2 samen)
   } else if(cap>=3){
     s.written.forEach(it=> seq.push({type:'written', data:it}));
   }
@@ -583,15 +588,17 @@ function buildSequence(key, setNum, maxLevel){
   return seq;
 }
 function buildMatchPairs(s){
-  // gebruikt de Verkennen-data (onderwerp + juiste vorm) als koppel-kaarten
-  const items = [];
-  s.explore.forEach(ex=>{
-    ex.subjects.forEach(subj=>{
-      const form = ex.forms[subj.group];
-      const subjText = subj.text.replace('...', '__').trim();
-      items.push({subject: subjText, form: form});
-    });
-  });
+  // Gebruikt de Verkennen-data (onderwerp + juiste vorm) als koppel-kaarten.
+  // BELANGRIJK: kaarten komen uit ÉÉN werkwoord, niet gemengd uit meerdere.
+  // Bij meerdere werkwoorden (bv. spelen én zijn) gebruiken ze vaak identieke
+  // onderwerpteksten ("Jij ...", "Hij ..."), die dan elk een ANDERE vorm nodig
+  // hebben — zonder zichtbaar verschil voor de leerling. Door binnen één
+  // werkwoord te blijven, is elke onderwerptekst gegarandeerd uniek op het bord.
+  const ex = s.explore[Math.floor(Math.random()*s.explore.length)];
+  const items = ex.subjects.map(subj => ({
+    subject: subj.text.replace('...', '__').trim(),
+    form: ex.forms[subj.group]
+  }));
   for(let i=items.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [items[i],items[j]]=[items[j],items[i]]; }
   return items.slice(0,6);
 }
@@ -1047,16 +1054,17 @@ function checkClassify(key){
 /* ---------- dictee (All-in): altijd hoorbaar, de leerling typt zelf ---------- */
 function renderDictee(data){
   run.total++;
-  let verbHint = null;
   let text = (data.prompt||'').replace(/^\d+\)\s*/, '');
   const m = text.match(/^\(([^)]+)\)\s*/);
-  if(m){ verbHint = m[1]; text = text.replace(/^\([^)]+\)\s*/, ''); }
+  if(m){ text = text.replace(/^\([^)]+\)\s*/, ''); }
+  const fullSentence = text.replace('...', data.answer).replace(/\s+/g,' ').trim();
   const playDictee = ()=>{
     if(!window.speechSynthesis) return;
     try{
       window.speechSynthesis.cancel();
-      if(verbHint) window.speechSynthesis.speak(mkUtterance('Werkwoord: ' + verbHint + '.'));
-      text.split('...').filter(p=>p && p.trim()).forEach(p=> window.speechSynthesis.speak(mkUtterance(p.trim())));
+      // een echt dictee: de VOLLEDIGE zin wordt voorgelezen, inclusief het (juiste) werkwoord zelf —
+      // de leerling schrijft op wat die hoort, i.p.v. het antwoord zelf te moeten afleiden.
+      window.speechSynthesis.speak(mkUtterance(fullSentence));
     }catch(e){}
   };
   window._dicteePlay = playDictee;

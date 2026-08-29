@@ -442,8 +442,8 @@ async function deleteAIReeks(id){
      inschatting — test 1x live af en geef door of het geheel iets te kort of te lang
      uitvalt op papier, dan stel ik deze tabel in één regel bij.
 */
-const WERKBLAD_BUDGET = { '*': 16, '**': 8, '***': 8 }; // aantal oefeningen per sectie (niet cumulatief); leest een leerling alle 3 secties, dan ziet die 16 -> 24 -> 32 in totaal (jullie afspraak van 15/20/25 was het absolute minimum, dit ligt daar telkens boven)
-const WERKBLAD_SPLIT  = 15; // hoeveel oefeningen (over alle secties heen) op pagina 1; de rest naar pagina 2
+const WERKBLAD_BUDGET = { '*': 10, '**': 6, '***': 4 }; // totaal aantal oefeningen per sectie, NIET meer bovenop elkaar opgeteld met de letter-onthullingsoefeningen (die vallen hier gewoon binnen) — samen dus 20 op het hele werkblad, teruggebracht na een test die op 4 pagina's uitkwam i.p.v. 2
+const WERKBLAD_SPLIT  = 10; // hoeveel oefeningen (over alle secties heen) op pagina 1; de rest naar pagina 2
 
 /* Een gewone shuffle() geeft elke keer een andere volgorde (prima voor een
    digitale oefenreeks, die mag/moet variëren). Voor het werkblad willen we
@@ -471,21 +471,26 @@ function seededShuffle(arr, seed){
   for(let i=a.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
   return a;
 }
-/* Husselt enkel de LETTERS van het (correcte!) antwoord door elkaar — er wordt
-   dus nooit een foute spelling getoond, in tegenstelling tot een eerder idee
-   (een "foutenjacht" met een bewust foute vorm) dat de leerkracht terecht
-   afkeurde: leerlingen mogen nooit een foute spelling te zien krijgen, ook niet
-   als opdracht. */
-function schudLetters(woord, seed){
+/* Onthult een vast PERCENTAGE van de letters van het (correcte!) antwoord —
+   nooit een foute spelling, en (anders dan het eerdere "husselen"-idee) ook
+   geen infinitief die toevallig al mee de oplossing verklapt: de leerling ziet
+   enkel een rij streepjes met daartussen een paar al ingevulde letters, net
+   als bij een galgje-achtig woordraadsel. Hoe hoger het niveau, hoe minder
+   letters al gegeven worden (★ = meeste hulp, ★★★ = minste). */
+function bouwLetterHint(woord, percentage, seed){
   const rng = mulberry32(seed);
-  const letters = woord.split('');
-  for(let i=letters.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [letters[i],letters[j]]=[letters[j],letters[i]]; }
-  let resultaat = letters.join('');
-  if(resultaat.toLowerCase()===woord.toLowerCase()) resultaat = letters.reverse().join(''); // vangnet bij korte woorden
-  return resultaat;
+  const n = woord.length;
+  const aantalOnthullen = Math.round(n * percentage / 100);
+  const indices = [...Array(n).keys()];
+  for(let i=indices.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [indices[i],indices[j]]=[indices[j],indices[i]]; }
+  const onthuldSet = new Set(indices.slice(0, aantalOnthullen));
+  return woord.split('').map((ch,i)=> onthuldSet.has(i) ? ch : null); // null = leerling moet deze letter zelf schrijven
 }
-// * = basisaantal, ** = dat + 3 extra, *** = dat + nog eens 2 extra (zoals gevraagd)
-const GEHUSSELD_COUNT = { '*': 3, '**': 3, '***': 2 };
+// * = meeste letters al gegeven (makkelijkst), *** = minste (moeilijkst) — zoals gevraagd
+const LETTERHINT_PERCENTAGE = { '*': 25, '**': 20, '***': 15 };
+// hoeveel van de oefeningen van een niveau de letter-hint-vorm krijgen (i.p.v. een gewone open leemte) — dit valt BINNEN het totaal hierboven, niet erbovenop
+const LETTERHINT_COUNT = { '*': 2, '**': 2, '***': 1 };
+
 
 /* Verzamelt, voor één specifiek niveau (dus NIET cumulatief), een eerlijk
    gemengde selectie oefeningen: max. 40% meerkeuze, max. 30% korte
@@ -553,31 +558,33 @@ async function gatherWerkbladSecties(source, srcId){
 
   const seedBasis = stringHash(source + '|' + JSON.stringify(srcId));
 
-  // "Gehusseld woord"-oefeningen: reserveer dit EERST (vast, niet willekeurig
-  // bij elke keer openen), vóór de gewone secties samengesteld worden — zo
-  // staan ze gegarandeerd op het werkblad en komt dezelfde zin niet ook nog
-  // eens gewoon voor. BELANGRIJK: hier wordt nooit een foute spelling getoond
-  // (in tegenstelling tot een eerdere versie met een "foutenjacht") — enkel de
-  // letters van het correcte antwoord worden door elkaar gehusseld.
+  // Letter-hint-oefeningen: reserveer dit EERST (vast, niet willekeurig bij
+  // elke keer openen), vóór de gewone secties samengesteld worden — zo staan
+  // ze gegarandeerd op het werkblad en komt dezelfde zin niet ook nog eens
+  // gewoon voor. Dit valt BINNEN het totale budget van dat niveau, niet
+  // erbovenop (dat veroorzaakte net de pagina-overloop).
+  // BELANGRIJK: we knippen hier de "(infinitief, ...)"-hint vooraan de zin
+  // weg, want die zou de oplossing net verklappen naast de letter-hints.
   const gehusseldPerNiveau = { '*':[], '**':[], '***':[] };
   ['*','**','***'].forEach((lvl,i)=>{
-    const gewenst = GEHUSSELD_COUNT[lvl];
+    const gewenst = LETTERHINT_COUNT[lvl];
     if(gewenst<=0) return;
     const kandidaten = seededShuffle(perNiveau[lvl].Z.filter(it=>it.answer && it.answer.length>=3 && !it.answer.includes(' ') && it.answer!=='(eigen antwoord)'), seedBasis + 500 + i);
     const gekozen = kandidaten.slice(0, gewenst);
     const gekozenKeys = new Set(gekozen.map(it=>it.prompt+'|'+it.answer));
     perNiveau[lvl].Z = perNiveau[lvl].Z.filter(it=> !gekozenKeys.has(it.prompt+'|'+it.answer));
     gehusseldPerNiveau[lvl] = gekozen.map((it,j)=>({
-      prompt: it.prompt,
+      prompt: it.prompt.replace(/^\([^)]*\)\s*/, ''), // "(infinitief, ...)" weg, zou de letter-hint verklappen
       answer: it.answer,
-      gehusseld: schudLetters(it.answer, seedBasis + 700 + i*50 + j)
+      letterhint: bouwLetterHint(it.answer, LETTERHINT_PERCENTAGE[lvl], seedBasis + 700 + i*50 + j)
     }));
   });
 
   const secties = {};
   ['*','**','***'].forEach((lvl,i)=>{
     const p = perNiveau[lvl];
-    secties[lvl] = [...kiesVoorNiveau(p.A, p.Z, p.S, WERKBLAD_BUDGET[lvl], seedBasis + i*100), ...gehusseldPerNiveau[lvl]];
+    const budgetOverGewoon = Math.max(0, WERKBLAD_BUDGET[lvl] - gehusseldPerNiveau[lvl].length);
+    secties[lvl] = [...kiesVoorNiveau(p.A, p.Z, p.S, budgetOverGewoon, seedBasis + i*100), ...gehusseldPerNiveau[lvl]];
   });
 
   return { titel, secties };
@@ -590,9 +597,12 @@ function renderWerkbladItemsHTML(items, startNr){
       return `<li class="oefening" value="${nr}"><span class="opgave">${escHtml(it.prompt)}</span><br>
         <span class="mc-opties">${it.options.map(o=>`<span class="mc-optie">${escHtml(o)}</span>`).join(' &nbsp;–&nbsp; ')}</span></li>`;
     }
-    if(it.gehusseld){
-      const opgave = escHtml(it.prompt).replace(/\.\.\./, '<span class="leemte"></span>');
-      return `<li class="oefening" value="${nr}"><span class="opgave"><span class="hussel">(${escHtml(it.gehusseld)})</span> ${opgave}</span></li>`;
+    if(it.letterhint){
+      const rij = `<span class="letterhint">${it.letterhint.map(ch=> ch===null
+        ? `<span class="letterbox"></span>`
+        : `<span class="letterbox onthuld">${escHtml(ch)}</span>`).join('')}</span>`;
+      const opgave = escHtml(it.prompt).replace(/\.\.\./, rij);
+      return `<li class="oefening" value="${nr}"><span class="opgave">${opgave}</span></li>`;
     }
     const opgave = escHtml(it.prompt).replace(/\.\.\./, '<span class="leemte"></span>');
     return `<li class="oefening" value="${nr}"><span class="opgave">${opgave}</span></li>`;
@@ -620,7 +630,9 @@ const WERKBLAD_STYLE = `
   .mc-optie { border:1.5px solid #999; border-radius:12px; padding:2px 12px; display:inline-block; margin-top:4px; margin-right:4px; }
   .sectietitel { font-weight:bold; font-size:15.5px; margin:14px 0 8px 0; padding:4px 10px; background:#f0f0f0; border-left:5px solid #333; break-after:avoid; page-break-after:avoid; }
   .sectietitel:first-of-type { margin-top:4px; }
-  .hussel { font-weight:bold; letter-spacing:1px; color:#333; }
+  .letterhint { display:inline-flex; gap:3px; vertical-align:middle; }
+  .letterbox { display:inline-block; min-width:1em; padding:0 2px; text-align:center; border-bottom:1.5px solid #333; font-weight:bold; }
+  .letterbox.onthuld { color:#333; }
 </style>`;
 
 /* We printen NIET met window.print() op het scherm dat in de app zelf te zien
@@ -687,7 +699,7 @@ function buildWerkbladPaginasHTML(titel, volgorde){
       <div class="werkblad-pagina">
         ${headerHTML}
         <h1>${escHtml(titel)}</h1>
-        <h2>Werkblad — vul zelf in wat gevraagd wordt. Bij een woord tussen haakjes staan de letters door elkaar — ontrafel het woord en vul de juiste vorm in.</h2>
+        <h2>Werkblad — vul zelf in wat gevraagd wordt. Bij een rijtje streepjes staan al enkele letters van het woord gegeven — vul de ontbrekende letters aan.</h2>
         ${buildPaginaHTML(pagina1, 0)}
       </div>
       ${pagina2.length ? `<div class="werkblad-pagina">${buildPaginaHTML(pagina2, pagina1.length)}</div>` : ''}

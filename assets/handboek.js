@@ -464,5 +464,48 @@ const HANDBOEK_DATA = {
       {zin:"takenpakket – organisatie – ontdekken – van – meer – we – over – deze – het", antwoord:"We ontdekten meer over het takenpakket van deze organisatie."},
       {zin:"vrijwilliger – ik – later – Kruis – worden – Rode – bij – ook – het", antwoord:"Later word ik ook vrijwilliger bij het Rode Kruis."}
     ]
+  },
+  "TK060706": {
+    tense: "geenpv",
+    titel: "Nooit helemaal voltooid (TK060706)",
+    /* niveau *: voltooid deelwoord typen, inclusief trema (cirkel, oefening 2) */
+    persoonsvorm: [
+      {prompt:"(adresseren) Opa heeft de brieven ... aan de genodigden.", answer:"geadresseerd", level:"*"},
+      {prompt:"(inspecteren) De piloot heeft zijn vliegtuig ...", answer:"geïnspecteerd", level:"*"},
+      {prompt:"(arriveren) De hulpverleners zijn op hun bestemming ...", answer:"gearriveerd", level:"*"},
+      {prompt:"(interesseren) Ik ben ... in het steunen van die organisatie.", answer:"geïnteresseerd", level:"*"},
+      {prompt:"(uiten) Vader heeft zijn bezorgdheid ...", answer:"geuit", level:"*"},
+      {prompt:"(ergeren) Mama heeft zich al meermaals aan mijn puberende zus ...", answer:"geërgerd", level:"*"},
+      {prompt:"(openen) Het museum is vandaag niet ...", answer:"geopend", level:"*"},
+      /* niveau **: voltooid deelwoord als bijvoeglijk naamwoord, met -e (vierkant, oefening 3) */
+      {prompt:"(afbranden) het ... huis", answer:"afgebrande", level:"**"},
+      {prompt:"(openen) de ... deur", answer:"geopende", level:"**"},
+      {prompt:"(illustreren) het ... verhaal", answer:"geïllustreerde", level:"**"},
+      {prompt:"(exporteren) de ... hulpgoederen", answer:"geëxporteerde", level:"**"},
+      {prompt:"(uploaden) de ... foto's", answer:"geüploade", level:"**"},
+      {prompt:"(updaten) de ... laptop", answer:"geüpdatete", level:"**"},
+      {prompt:"(eisen) het ... vonnis", answer:"geëiste", level:"**"},
+      {prompt:"(overblijven) de ... supporters", answer:"overgebleven", level:"**"},
+      {prompt:"(instorten) het ... gebouw", answer:"ingestorte", level:"**"},
+      {prompt:"(bewijzen) een ... dienst", answer:"bewezen", level:"**"},
+      /* niveau ***: telkens twee voltooide deelwoorden in dezelfde zin (driehoek, oefening 5) */
+      {prompt:"(opereren) De ... patiënt wordt door de verpleger verzorgd.", answer:"geopereerde", level:"***"},
+      {prompt:"(verzorgen) De geopereerde patiënt wordt door de verpleger ...", answer:"verzorgd", level:"***"},
+      {prompt:"(vertalen) Het ... boek werd door een bekend tekenaar geïllustreerd.", answer:"vertaalde", level:"***"},
+      {prompt:"(illustreren) Het vertaalde boek werd door een bekend tekenaar ...", answer:"geïllustreerd", level:"***"},
+      {prompt:"(vervallen) Het ... huis werd door die bouwfirma gerestaureerd.", answer:"vervallen", level:"***"},
+      {prompt:"(restaureren) Het vervallen huis werd door die bouwfirma ...", answer:"gerestaureerd", level:"***"},
+      {prompt:"(oplossen) Het ... vraagstuk wordt door de juf verbeterd.", answer:"opgeloste", level:"***"},
+      {prompt:"(verbeteren) Het opgeloste vraagstuk wordt door de juf ...", answer:"verbeterd", level:"***"},
+      {prompt:"(bedreigen) Die ... dieren werden uit Azië geïmporteerd.", answer:"bedreigde", level:"***"},
+      {prompt:"(importeren) Die bedreigde dieren werden uit Azië ...", answer:"geïmporteerd", level:"***"}
+    ],
+    /* niveau **: zin herschrijven met een voltooid deelwoord (vierkant, oefening 4) */
+    zinvtLabel: "Herschrijf deze zin met een voltooid deelwoord (bv. 'ik heb ... gegeten'):",
+    zinvt: [
+      {zin:"Ik interviewde een hulpverlener van Artsen Zonder Grenzen.", antwoord:"Ik heb een hulpverlener van Artsen Zonder Grenzen geïnterviewd."},
+      {zin:"Mijn grootouders emigreerden naar Spanje.", antwoord:"Mijn grootouders zijn naar Spanje geëmigreerd."},
+      {zin:"In de lessen STEM experimenteerden wij met drones.", antwoord:"In de lessen STEM hebben wij met drones geëxperimenteerd."}
+    ]
   }
 };

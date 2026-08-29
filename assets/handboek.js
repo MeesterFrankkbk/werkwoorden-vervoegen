@@ -546,5 +546,107 @@ const HANDBOEK_DATA = {
         opdracht: "Je wilt meer weten over het ruimtewezen in de kamer van zangeres Lala. Je hebt een interview van haar afgenomen. Schrijf een kort krantenartikel (minstens 4 zinnen), met persoonsvormen in zowel de tegenwoordige als de verleden tijd."
       }
     ]
+  },
+  "TK061001": {
+    tense: "allin",
+    titel: "Lachen en werken (TK061001)",
+    /* niveau *: tt/vt door elkaar typen (cirkel, oefening 2) */
+    persoonsvorm: [
+      {prompt:"(houden, t.t.) Tim ... de hond met beide armen vast.", answer:"houdt", level:"*"},
+      {prompt:"(werken, t.t.) ... je ook mee aan het project?", answer:"Werk", level:"*"},
+      {prompt:"(huren, t.t.) Wij ... een zomerhuisje aan de Franse kust.", answer:"huren", level:"*"},
+      {prompt:"(verhuizen, t.t.) Onze buurman ... naar China.", answer:"verhuist", level:"*"},
+      {prompt:"(vinden, t.t.) ... je broer nog wel eens fossielen?", answer:"Vindt", level:"*"},
+      {prompt:"(antwoorden, v.t.) Wat ... jij op zijn vraag?", answer:"antwoordde", level:"*"},
+      {prompt:"(beloven, v.t.) Papa ... om snel naar huis te komen.", answer:"beloofde", level:"*"},
+      {prompt:"(proberen, v.t.) Wij ... het raadsel op te lossen.", answer:"probeerden", level:"*"},
+      {prompt:"(ontmoeten, v.t.) De meisjes ... hun idool.", answer:"ontmoetten", level:"*"},
+      {prompt:"(bestellen, v.t.) Mijn zus ... een nieuw kleedje.", answer:"bestelde", level:"*"},
+      /* niveau **: tt/vt/vd door elkaar (vierkant, oefening 3 en 4) */
+      {prompt:"(eindigen, t.t.) Jij ... het spel.", answer:"eindigt", level:"**"},
+      {prompt:"(eindigen, v.t.) Hij ... het spel.", answer:"eindigde", level:"**"},
+      {prompt:"(eindigen, v.d.) Zij is ...", answer:"geëindigd", level:"**"},
+      {prompt:"(vragen, v.t.) Jij ... het aan de leraar.", answer:"vroeg", level:"**"},
+      {prompt:"(vragen, v.d.) Ik heb ...", answer:"gevraagd", level:"**"},
+      {prompt:"(antwoorden, t.t.) ... jij op de vraag?", answer:"Antwoord", level:"**"},
+      {prompt:"(antwoorden, v.t.) Ik ...", answer:"antwoordde", level:"**"},
+      {prompt:"(antwoorden, v.d.) Ze heeft ...", answer:"geantwoord", level:"**"},
+      {prompt:"(nemen, v.t.) Ik ... de bus.", answer:"nam", level:"**"},
+      {prompt:"(nemen, v.d.) Hij heeft ...", answer:"genomen", level:"**"},
+      {prompt:"(graven, t.t.) Ik ... een kuil.", answer:"graaf", level:"**"},
+      {prompt:"(graven, v.d.) Ik heb ...", answer:"gegraven", level:"**"},
+      {prompt:"(eisen, v.t.) Jij ... te veel.", answer:"eiste", level:"**"},
+      {prompt:"(eisen, v.d.) Ik heb ...", answer:"geëist", level:"**"},
+      {prompt:"(raden, v.t.) Ik ... het juiste antwoord.", answer:"raadde", level:"**"},
+      {prompt:"(raden, t.t.) Je ... nooit wie ik gezien heb.", answer:"raadt", level:"**"},
+      {prompt:"(raden, v.d.) Heb je zijn leeftijd juist ...?", answer:"geraden", level:"**"},
+      {prompt:"(beantwoorden, v.t.) De directeur ... mijn vraag onmiddellijk.", answer:"beantwoordde", level:"**"},
+      {prompt:"(beantwoorden, t.t.) De sollicitant ... aan ons profiel.", answer:"beantwoordt", level:"**"},
+      {prompt:"(beantwoorden, v.d.) Heb je die brief al ...?", answer:"beantwoord", level:"**"},
+      {prompt:"(landen, t.t.) ... je zus vandaag op Zaventem?", answer:"Landt", level:"**"},
+      {prompt:"(landen, v.t.) Het vliegtuig ... met een uur vertraging.", answer:"landde", level:"**"},
+      {prompt:"(landen, v.d.) Is de luchtballon al ...?", answer:"geland", level:"**"},
+      {prompt:"(besteden, t.t.) Hoelang ... je wekelijks aan je hobby?", answer:"besteed", level:"**"},
+      {prompt:"(besteden, v.t.) Jorn ... te weinig aandacht.", answer:"besteedde", level:"**"},
+      {prompt:"(besteden, v.d.) Heb je voldoende aandacht ...?", answer:"besteed", level:"**"},
+      {prompt:"(bieden, v.t.) De miljonair ... veel euro's.", answer:"bood", level:"**"},
+      {prompt:"(bieden, v.d.) Hoeveel heeft hij dan ...?", answer:"geboden", level:"**"},
+      {prompt:"(bieden, t.t.) Die opdracht ... je weinig uitdaging.", answer:"biedt", level:"**"},
+      /* niveau ***: nog pittiger door elkaar (driehoek, oefening 5) */
+      {prompt:"(dansen, v.t.) De jongeren ... tot in de vroege uurtjes.", answer:"dansten", level:"***"},
+      {prompt:"(lachen, t.t.) ... je met die jongen omdat hij een fout maakt?", answer:"Lach", level:"***"},
+      {prompt:"(afbranden, v.d.) Vorige week zijn in onze stad vijf huizen ...", answer:"afgebrand", level:"***"},
+      {prompt:"(dulden, t.t.) De rechter ... geen enkele tegenspraak.", answer:"duldt", level:"***"},
+      {prompt:"(ontmoeten, v.t.) Gisteren ... wij onze nieuwe buren.", answer:"ontmoetten", level:"***"},
+      {prompt:"(veranderen, v.d.) Heeft de winkelier zijn etalage ...?", answer:"veranderd", level:"***"},
+      {prompt:"(beslissen, v.t.) De leerkrachten ... om voortaan geen huiswerk meer te geven.", answer:"beslisten", level:"***"},
+      {prompt:"(kopen, v.d.) Mijn grootouders hebben een nieuwe wagen ...", answer:"gekocht", level:"***"}
+    ]
+  },
+  "TK061002": {
+    tense: "allin",
+    titel: "Spieken is niet nodig (TK061002)",
+    /* niveau *: verleden tijd en voltooid deelwoord typen (cirkel, oefening 2) */
+    persoonsvorm: [
+      {prompt:"(dansen) Ik ... de hele avond.", answer:"danste", level:"*"},
+      {prompt:"(dansen) Ik heb ...", answer:"gedanst", level:"*"},
+      {prompt:"(eten) Ik ... een appel.", answer:"at", level:"*"},
+      {prompt:"(eten) Ik heb ...", answer:"gegeten", level:"*"},
+      {prompt:"(lachen) Ik ... luid.", answer:"lachte", level:"*"},
+      {prompt:"(lachen) Ik heb ...", answer:"gelachen", level:"*"},
+      {prompt:"(zingen) Ik ... een lied.", answer:"zong", level:"*"},
+      {prompt:"(zingen) Ik heb ...", answer:"gezongen", level:"*"},
+      {prompt:"(praten) Ik ... met mijn vriend.", answer:"praatte", level:"*"},
+      {prompt:"(praten) Ik heb ...", answer:"gepraat", level:"*"},
+      {prompt:"(snijden) Ik ... het brood.", answer:"sneed", level:"*"},
+      {prompt:"(snijden) Ik heb ...", answer:"gesneden", level:"*"},
+      {prompt:"(drinken) Ik ... een glas water.", answer:"dronk", level:"*"},
+      {prompt:"(drinken) Ik heb ...", answer:"gedronken", level:"*"},
+      /* niveau **: persoonsvorm in de andere tijd zetten, in een verhaal (vierkant, oefening 3) */
+      {prompt:"(hebben) Apotheker Janssens ... een zaak in de Kerkstraat. Zet in de verleden tijd.", answer:"had", level:"**"},
+      {prompt:"(horen) Hij ... dat er een opnameploeg op ronde was. Zet in de verleden tijd.", answer:"hoorde", level:"**"},
+      {prompt:"(vertellen) Hij ... het nieuws onmiddellijk aan zijn vrouw. Zet in de tegenwoordige tijd.", answer:"vertelt", level:"**"},
+      {prompt:"(besluiten) Die ... om een bezoek te brengen aan haar kapper. Zet in de verleden tijd.", answer:"besloot", level:"**"},
+      {prompt:"(gaan) Enkele minuten later ... de winkeldeur van de apotheek open. Zet in de verleden tijd.", answer:"ging", level:"**"},
+      {prompt:"(staan) Daar ... Koen Bauwers! Zet in de verleden tijd.", answer:"stond", level:"**"},
+      {prompt:"(inspecteren) Presentator Koen Bauwers ... de apotheek op netheid. Zet in de tegenwoordige tijd.", answer:"inspecteert", level:"**"},
+      {prompt:"(ontvangen) Na een grondige inspectie ... de apotheker een prijs. Zet in de verleden tijd.", answer:"ontving", level:"**"},
+      {prompt:"(vertrekken) Daarna ... de opnameploeg naar een andere locatie. Zet in de verleden tijd.", answer:"vertrok", level:"**"},
+      /* niveau **: lange brief aanvullen (vierkant, oefening 4) */
+      {prompt:"(komen) Nu het einde van dit schooljaar zo dichtbij ...,", answer:"komt", level:"**"},
+      {prompt:"(willen) ... ik deze brief aan u richten.", answer:"wil", level:"**"},
+      {prompt:"(zijn) Dit jaar ... een topjaar!", answer:"was", level:"**"},
+      {prompt:"(leren) We ... veel nieuwe dingen.", answer:"leerden", level:"**"},
+      {prompt:"(hebben) Geen enkele spellingregel ... nog geheimen voor ons.", answer:"heeft", level:"**"},
+      {prompt:"(danken) Al die kennis ... we aan u en uw collega's.", answer:"danken", level:"**"},
+      {prompt:"(zijn) Ik ... zo blij om nu een echte Taalkanjer te zijn.", answer:"ben", level:"**"},
+      {prompt:"(worden) Onze klas ... een hechte vriendenclub.", answer:"werd", level:"**"},
+      {prompt:"(worden) Ik ... binnenkort een echte puber.", answer:"word", level:"**"},
+      {prompt:"(beleven) Bedankt voor alle leuke momenten die we het voorbije jaar hebben ...", answer:"beleefd", level:"**"}
+    ],
+    /* niveau ***: AI-gecontroleerd kort verslag (driehoek, oefening 5) */
+    vrijetekst: {
+      opdracht: "Je beleefde je laatste schooljaar in de lagere school. Welk moment is je bijgebleven? Schrijf er een kort verslag over (minstens 3 zinnen)."
+    }
   }
 };

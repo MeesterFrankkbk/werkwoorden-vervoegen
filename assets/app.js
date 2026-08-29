@@ -438,6 +438,33 @@ async function deleteAIReeks(id){
 const WERKBLAD_BUDGET = { '*': 8, '**': 12, '***': 16 }; // totaal aantal oefeningen op het werkblad
 const WERKBLAD_SPLIT  = { '*': 4, '**': 5, '***': 6 };   // hoeveel daarvan op pagina 1 (rest -> pagina 2)
 
+/* Een gewone shuffle() geeft elke keer een andere volgorde (prima voor een
+   digitale oefenreeks, die mag/moet variëren). Voor het werkblad willen we
+   net het omgekeerde: dezelfde les + hetzelfde niveau moet altijd exact
+   dezelfde oefeningen (en dus dezelfde correctiesleutel) opleveren, ongeacht
+   hoe vaak je het opnieuw opent. Daarvoor gebruiken we een kleine, seed-bare
+   generator (mulberry32) i.p.v. Math.random(): dezelfde seed geeft altijd
+   dezelfde "willekeurige" volgorde. */
+function stringHash(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++){ h = (Math.imul(31,h) + str.charCodeAt(i))|0; }
+  return h>>>0;
+}
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = (seed + 0x6D2B79F5)|0;
+    let t = Math.imul(seed ^ seed>>>15, 1 | seed);
+    t = (t + Math.imul(t ^ t>>>7, 61 | t)) ^ t;
+    return ((t ^ t>>>14) >>> 0) / 4294967296;
+  };
+}
+function seededShuffle(arr, seed){
+  const rng = mulberry32(seed);
+  const a = [...arr];
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
 async function gatherWerkbladItems(source, srcId, level){
   const order = {'*':1,'**':2,'***':3};
   const cap = order[level];
@@ -479,13 +506,19 @@ async function gatherWerkbladItems(source, srcId, level){
       deelZinnen.push({ prompt: `${ex.prefix||''} ... ${ex.suffix||''}`.trim(), answer: ex.answer }));
   }
 
-  // Willekeurig mengen binnen elke pool (zodat een herprint niet altijd identiek
-  // is), en dan verdelen over het vaste budget voor dit niveau: max. 40% meerkeuze
-  // (deel A), max. 30% korte stam-oefeningen, de rest (minstens 30%, meestal veel
-  // meer) altijd echte zin-invuloefeningen. Als een pool te klein is voor haar
-  // aandeel, vult een andere pool het tekort automatisch aan — zo raakt het
-  // budget altijd volledig gevuld zolang er ergens genoeg materiaal is.
-  shuffle(deelA); shuffle(deelZinnen); shuffle(deelStam);
+  // Vast (niet willekeurig bij elke keer opnieuw genereren) mengen binnen elke
+  // pool — de seed hangt af van de les/reeks + het niveau, zodat DEZELFDE les op
+  // hetzelfde niveau altijd hetzelfde werkblad (en dus dezelfde correctiesleutel)
+  // oplevert, ongeacht hoe vaak je het opnieuw opent. Nadien verdelen we over het
+  // vaste budget voor dit niveau: max. 40% meerkeuze (deel A), max. 30% korte
+  // stam-oefeningen, de rest (minstens 30%, meestal veel meer) altijd echte
+  // zin-invuloefeningen. Als een pool te klein is voor haar aandeel, vult een
+  // andere pool het tekort automatisch aan — zo raakt het budget altijd volledig
+  // gevuld zolang er ergens genoeg materiaal is.
+  const seedBasis = stringHash(source + '|' + JSON.stringify(srcId) + '|' + level);
+  deelA = seededShuffle(deelA, seedBasis + 1);
+  deelZinnen = seededShuffle(deelZinnen, seedBasis + 2);
+  deelStam = seededShuffle(deelStam, seedBasis + 3);
   const budget = WERKBLAD_BUDGET[level];
   const nemenA = Math.min(deelA.length, Math.round(budget*0.4));
   let restBudget = budget - nemenA;
@@ -499,8 +532,8 @@ async function gatherWerkbladItems(source, srcId, level){
   const extraA = Math.min(deelA.length - nemenA, tekort);
 
   deelA = deelA.slice(0, nemenA + extraA);
-  const deelB = [...deelZinnen.slice(0, nemenZinnen), ...deelStam.slice(0, nemenStam + extraStam)];
-  shuffle(deelB); // stam en zinnen door elkaar, niet als twee blokken na elkaar
+  let deelB = [...deelZinnen.slice(0, nemenZinnen), ...deelStam.slice(0, nemenStam + extraStam)];
+  deelB = seededShuffle(deelB, seedBasis + 4); // stam en zinnen door elkaar, niet als twee blokken na elkaar
 
   return { titel, deelA, deelB };
 }

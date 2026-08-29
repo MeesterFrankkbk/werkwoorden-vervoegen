@@ -648,7 +648,7 @@ function renderStep(){
   } else if(step.type==='written'){
     inner = streakBadge() + renderWritten(step.data);
   } else if(step.type==='match'){
-    inner = renderMatch(step.data);
+    inner = renderMatch(step.data, step.matchLabel);
   } else if(step.type==='end'){
     inner = renderReport();
   } else if(step.type==='classify'){
@@ -863,7 +863,7 @@ function checkWritten(){
    de vorm-kaart overeenkomt met de vereiste vorm van de onderwerp-kaart —
    niet omdat het toevallig dezelfde vooraf-vastgelegde koppel-index was.
    Zo wordt elke inhoudelijk correcte combinatie ook echt als juist gerekend. */
-function renderMatch(items){
+function renderMatch(items, matchLabel){
   const cards = [];
   items.forEach((it,idx)=>{
     cards.push({type:'subject', text:it.subject, form:it.form, id:'S'+idx});
@@ -875,8 +875,11 @@ function renderMatch(items){
   run._matchFound = 0;
   run._matchTotal = items.length;
   const grid = cards.map((c,idx)=>`<div class="match-card" id="mc${idx}" onclick="flipMatch(${idx})">?</div>`).join('');
+  const instructie = matchLabel==='infinitief'
+    ? 'Zoek per koppel de infinitief en de bijbehorende stam van het werkwoord.'
+    : 'Zoek per koppel het onderwerp en de bijbehorende vorm van het werkwoord. Sommige vormen kunnen bij meer dan één onderwerp horen — elke juiste combinatie telt.';
   return `<span class="level-badge" style="background:#fef3c7;color:#92400e">Geheugenspel</span>
-    <p>Zoek per koppel het onderwerp en de bijbehorende vorm van het werkwoord. Sommige vormen kunnen bij meer dan één onderwerp horen — elke juiste combinatie telt.</p>
+    <p>${instructie}</p>
     <div class="match-grid" id="matchGrid">${grid}</div>
     <p id="matchStatus" style="margin-top:.8rem"></p>`;
 }
@@ -1090,7 +1093,7 @@ function startHandboekRun(code, level){
   shuffle([...(lesData.stam||[])]).forEach(it=> seq.push({type:'stam', data:it}));
   shuffle((lesData.identify||[]).filter(it=>order[it.level]<=cap)).forEach(it=> seq.push({type:'identify', data:it}));
   shuffle((lesData.persoonsvorm||[]).filter(it=>order[it.level||'*']<=cap)).forEach(it=> seq.push({type:'written', data:it}));
-  if(lesData.stam && lesData.stam.length>=3) seq.push({type:'match', data: lesData.stam.map(it=>({subject:it.infinitief, form:it.antwoord}))});
+  if(lesData.stam && lesData.stam.length>=3) seq.push({type:'match', data: lesData.stam.map(it=>({subject:it.infinitief, form:it.antwoord})), matchLabel:'infinitief'});
   shuffle((lesData.fillin||[]).filter(it=>order[it.level||'**']<=cap)).forEach(it=> seq.push({type:'fillin', data:{...it, level: it.level||'**'}}));
   if(cap>=order[lesData.zinvtLevel||'**']) shuffle((lesData.zinvt||[]).map(it=>({...it, label: it.label||lesData.zinvtLabel}))).forEach(it=> seq.push({type:'zinvt', data:it}));
   if(cap>=3) shuffle([...(lesData.vrijezin||[])]).forEach(it=> seq.push({type:'vrijezin', data:it}));

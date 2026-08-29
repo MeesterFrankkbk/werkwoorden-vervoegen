@@ -882,7 +882,7 @@ const HANDBOEK_DATA = {
       {prompt:"(herinneren) Een blik op de klok ... ons er wel aan dat het bedtijd was.", answer:"herinnerde", level:"***"},
       {prompt:"(vallen) Ik ... als een blok in slaap.", answer:"viel", level:"***"},
       {prompt:"(dromen) en ... verder over het feest.", answer:"droomde", level:"***"},
-      {prompt:"('s Morgens, worden) ... ik wakker met hoofdpijn.", answer:"werd", level:"***"}
+      {prompt:"(worden) 's Morgens ... ik wakker met hoofdpijn.", answer:"werd", level:"***"}
     ],
     identify: [
       {level:"*", prompt:"eten", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"eten → at"},
@@ -1216,7 +1216,7 @@ const HANDBOEK_DATA = {
       {prompt:"(poetsen, v.t.) Een poetsvrouw ... elke dag wel ergens een huis.", answer:"poetste", level:"**"},
       {prompt:"(dweilen, v.t.) Mijn moeder ... de huiskamer.", answer:"dweilde", level:"**"},
       {prompt:"(stofzuigen, v.t.) Vader ... de auto twee keer per week.", answer:"stofzuigde", level:"**"},
-      {prompt:"(stoffen, v.t.) Lize en Bram ... hun spullen grondig af.", answer:"stoften af", level:"**"},
+      {prompt:"(stoffen, v.t.) Lize en Bram ... hun spullen grondig af.", answer:"stoften", level:"**"},
       {prompt:"(schilderen, v.t.) Dit jaar ... we de vuile muren opnieuw.", answer:"schilderden", level:"**"},
       {prompt:"(spoelen, v.t.) De glazenwasser ... de ruiten grondig.", answer:"spoelde", level:"**"},
       {prompt:"(beluisteren, v.t.) Bram ... altijd muziek op zijn kamer.", answer:"beluisterde", level:"**"},

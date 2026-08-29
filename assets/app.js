@@ -469,8 +469,8 @@ function seededShuffle(arr, seed){
      inschatting — test 1x live af en geef door of het geheel iets te kort of te lang
      uitvalt op papier, dan stel ik deze tabel in één regel bij.
 */
-const WERKBLAD_BUDGET = { '*': 10, '**': 9, '***': 8 }; // aantal oefeningen per sectie (niet cumulatief, samen dus tot 27 op het hele werkblad)
-const WERKBLAD_SPLIT  = 12; // hoeveel oefeningen (over alle secties heen) op pagina 1; de rest naar pagina 2
+const WERKBLAD_BUDGET = { '*': 16, '**': 8, '***': 8 }; // aantal oefeningen per sectie (niet cumulatief); leest een leerling alle 3 secties, dan ziet die 16 -> 24 -> 32 in totaal (jullie afspraak van 15/20/25 was het absolute minimum, dit ligt daar telkens boven)
+const WERKBLAD_SPLIT  = 15; // hoeveel oefeningen (over alle secties heen) op pagina 1; de rest naar pagina 2
 
 /* Een gewone shuffle() geeft elke keer een andere volgorde (prima voor een
    digitale oefenreeks, die mag/moet variëren). Voor het werkblad willen we
@@ -527,6 +527,12 @@ async function gatherWerkbladSecties(source, srcId){
   let titel = '';
   // per niveau een eigen, NIET-cumulatieve pool (dus enkel items die exact dat niveau dragen)
   const perNiveau = { '*': {A:[],Z:[],S:[]}, '**': {A:[],Z:[],S:[]}, '***': {A:[],Z:[],S:[]} };
+  // aparte, "rauwe" pool van invuloefeningen MET hun echte foute keuzemogelijkheden
+  // (prefix/suffix apart gehouden, niet al samengevoegd tot 1 tekst) — enkel hieruit
+  // kunnen we betrouwbaar een "foutenjacht"-bonusoefening bouwen, want de foute
+  // vorm is al door het handboek/de reeks/de AI zelf gevalideerd, niet iets wat
+  // wij zelf verzinnen.
+  const fillinRauw = []; // elk item: { level, prefix, suffix, answer, options }
 
   if(source==='handboek'){
     const d = await getLesData(srcId);
@@ -534,7 +540,11 @@ async function gatherWerkbladSecties(source, srcId){
     (d.identify||[]).filter(it=>!it.plain && perNiveau[it.level]).forEach(it=>
       perNiveau[it.level].A.push({ prompt: cleanPrompt(it.prompt), options: it.options, correct: it.options[it.correctIndex] }));
     (d.persoonsvorm||[]).forEach(it=>{ const lvl = it.level||'*'; if(perNiveau[lvl]) perNiveau[lvl].Z.push({ prompt: cleanPrompt(it.prompt), answer: it.answer }); });
-    (d.fillin||[]).forEach(it=>{ if(perNiveau[it.level]) perNiveau[it.level].Z.push({ prompt: `${it.prefix} ... ${it.suffix}`.trim(), answer: it.answer }); });
+    (d.fillin||[]).forEach(it=>{
+      const lvl = it.level||'**'; // zelfde standaardwaarde als de echte oefeningen-motor gebruikt
+      if(perNiveau[lvl]) perNiveau[lvl].Z.push({ prompt: `${it.prefix} ... ${it.suffix}`.trim(), answer: it.answer });
+      if(perNiveau[lvl] && it.options && it.options.length>=2) fillinRauw.push({ level: lvl, prefix: it.prefix, suffix: it.suffix, answer: it.answer, options: it.options });
+    });
     // "stam" geldt in de digitale app als niveau *-materiaal -> enkel bij ★
     (d.stam||[]).forEach(it=>
       perNiveau['*'].S.push({ prompt: `Geef de stam van "${it.infinitief}".`, answer: it.antwoord }));
@@ -548,22 +558,50 @@ async function gatherWerkbladSecties(source, srcId){
     titel = t.title + ' — ' + reeksNaam(srcId.key, srcId.setNum);
     (s.identify||[]).filter(it=>perNiveau[it.level]).forEach(it=>
       perNiveau[it.level].A.push({ prompt: cleanPrompt(it.prompt), options: it.options, correct: it.options[it.correctIndex] }));
-    (s.fillin||[]).filter(it=>perNiveau[it.level]).forEach(it=>
-      perNiveau[it.level].Z.push({ prompt: `${it.prefix} ... ${it.suffix}`.trim(), answer: it.answer }));
+    (s.fillin||[]).filter(it=>perNiveau[it.level]).forEach(it=>{
+      perNiveau[it.level].Z.push({ prompt: `${it.prefix} ... ${it.suffix}`.trim(), answer: it.answer });
+      if(it.options && it.options.length>=2) fillinRauw.push({ level: it.level, prefix: it.prefix, suffix: it.suffix, answer: it.answer, options: it.options });
+    });
     (s.written||[]).forEach(it=> perNiveau['***'].Z.push({ prompt: cleanPrompt(it.prompt), answer: it.answer }));
   } else if(source==='ai'){
     const item = loadAIReeksen().find(r=>r.id===srcId);
     titel = '✨ ' + item.naam;
-    item.exercises.forEach(ex=>{ const lvl = ex.level||'*'; if(perNiveau[lvl]) perNiveau[lvl].Z.push({ prompt: `${ex.prefix||''} ... ${ex.suffix||''}`.trim(), answer: ex.answer }); });
+    item.exercises.forEach(ex=>{
+      const lvl = ex.level||'*';
+      if(perNiveau[lvl]) perNiveau[lvl].Z.push({ prompt: `${ex.prefix||''} ... ${ex.suffix||''}`.trim(), answer: ex.answer });
+      if(perNiveau[lvl] && ex.options && ex.options.length>=2) fillinRauw.push({ level: lvl, prefix: ex.prefix||'', suffix: ex.suffix||'', answer: ex.answer, options: ex.options });
+    });
   }
 
   const seedBasis = stringHash(source + '|' + JSON.stringify(srcId));
+
+  // Foutenjacht-bonus: kies dit EERST (vast, niet willekeurig bij elke keer
+  // openen), vóór de gewone secties samengesteld worden — anders kan het
+  // gebeuren dat bij een groot budget alle geschikte zinnen al "op" zijn en er
+  // niets overblijft. Zo staat de bonusoefening er altijd bij zodra er ergens
+  // een invuloefening met een echte foute keuzemogelijkheid bestaat, en wordt
+  // diezelfde zin nadien uit de gewone pool gehaald zodat ze niet dubbel voorkomt.
+  let foutenjacht = null;
+  if(fillinRauw.length){
+    const bron = seededShuffle(fillinRauw, seedBasis + 999)[0];
+    const foutOpties = bron.options.filter(o=>o!==bron.answer);
+    if(foutOpties.length){
+      const foutVorm = foutOpties[0];
+      const foutieveZin = `${bron.prefix} ${foutVorm} ${bron.suffix}`.replace(/\s+/g,' ').trim();
+      const juisteZin = `${bron.prefix} ${bron.answer} ${bron.suffix}`.replace(/\s+/g,' ').trim();
+      foutenjacht = { zin: foutieveZin, antwoord: juisteZin };
+      const promptKey = `${bron.prefix} ... ${bron.suffix}`.trim();
+      perNiveau[bron.level].Z = perNiveau[bron.level].Z.filter(it=> !(it.prompt===promptKey && it.answer===bron.answer));
+    }
+  }
+
   const secties = {};
   ['*','**','***'].forEach((lvl,i)=>{
     const p = perNiveau[lvl];
     secties[lvl] = kiesVoorNiveau(p.A, p.Z, p.S, WERKBLAD_BUDGET[lvl], seedBasis + i*100);
   });
-  return { titel, secties };
+
+  return { titel, secties, foutenjacht };
 }
 
 function renderWerkbladItemsHTML(items, startNr){
@@ -599,6 +637,8 @@ const WERKBLAD_STYLE = `
   .mc-optie { border:1.5px solid #999; border-radius:12px; padding:2px 12px; display:inline-block; margin-top:4px; margin-right:4px; }
   .sectietitel { font-weight:bold; font-size:15.5px; margin:14px 0 8px 0; padding:4px 10px; background:#f0f0f0; border-left:5px solid #333; break-after:avoid; page-break-after:avoid; }
   .sectietitel:first-of-type { margin-top:4px; }
+  .foutenjacht { break-inside: avoid; page-break-inside: avoid; margin-top:22px; padding:12px 14px; border:2px dashed #333; border-radius:10px; background:#fffbea; }
+  .foutenjacht-lijn { display:block; border-bottom:1.5px solid #333; height:1.6em; margin-top:8px; }
 </style>`;
 
 /* We printen NIET met window.print() op het scherm dat in de app zelf te zien
@@ -621,7 +661,7 @@ function openInPrintVenster(titel, lichaamHTML){
 
 let werkbladCtx = null; // { source, srcId, backAction, titel, secties, volgorde: [{lvl, item}] }
 
-function buildWerkbladPaginasHTML(titel, volgorde){
+function buildWerkbladPaginasHTML(titel, volgorde, foutenjacht){
   const splitAt = Math.min(WERKBLAD_SPLIT, volgorde.length);
   const pagina1 = volgorde.slice(0, splitAt);
   const pagina2 = volgorde.slice(splitAt);
@@ -659,14 +699,22 @@ function buildWerkbladPaginasHTML(titel, volgorde){
     return html;
   }
 
+  const foutenjachtHTML = foutenjacht ? `
+    <div class="foutenjacht">
+      🎯 <b>Foutenjacht (bonus)</b> — Deze zin bevat een fout. Zoek de fout en schrijf de zin juist over.<br>
+      <span class="opgave">${escHtml(foutenjacht.zin)}</span><br>
+      <span class="foutenjacht-lijn"></span>
+    </div>` : '';
+
   return `<div class="werkblad">
       <div class="werkblad-pagina">
         ${headerHTML}
         <h1>${escHtml(titel)}</h1>
         <h2>Werkblad — vul zelf in wat gevraagd wordt.</h2>
         ${buildPaginaHTML(pagina1, 0)}
+        ${!pagina2.length ? foutenjachtHTML : ''}
       </div>
-      ${pagina2.length ? `<div class="werkblad-pagina">${buildPaginaHTML(pagina2, pagina1.length)}</div>` : ''}
+      ${pagina2.length ? `<div class="werkblad-pagina">${buildPaginaHTML(pagina2, pagina1.length)}${foutenjachtHTML}</div>` : ''}
     </div>`;
 }
 
@@ -674,18 +722,18 @@ async function renderWerkbladPreview(source, srcId, backAction){
   if(!state.teacherMode) return;
   stopSpeech();
   root.innerHTML = `<p class="no-print">Werkblad wordt klaargemaakt...</p>`;
-  const { titel, secties } = await gatherWerkbladSecties(source, srcId);
+  const { titel, secties, foutenjacht } = await gatherWerkbladSecties(source, srcId);
   // doorlopende lijst van {lvl, item}, in de vaste volgorde ★ -> ★★ -> ★★★,
   // dit is exact wat er op de 2 pagina's komt (en dus ook in de correctiesleutel)
   const volgorde = [];
   ['*','**','***'].forEach(lvl=> secties[lvl].forEach(item=> volgorde.push({lvl, item})));
-  werkbladCtx = { source, srcId, backAction, titel, secties, volgorde };
+  werkbladCtx = { source, srcId, backAction, titel, secties, volgorde, foutenjacht };
 
-  const werkbladHTML = buildWerkbladPaginasHTML(titel, volgorde);
+  const werkbladHTML = buildWerkbladPaginasHTML(titel, volgorde, foutenjacht);
   root.innerHTML = `
     <button class="backbtn" onclick="werkbladCtx=null;${backAction}">← Terug</button>
     <div style="margin:1rem 0;display:flex;gap:.6rem;flex-wrap:wrap">
-      <button class="nextbtn" onclick="openInPrintVenster(werkbladCtx.titel, buildWerkbladPaginasHTML(werkbladCtx.titel, werkbladCtx.volgorde))">🖨️ Print werkblad (2 pagina's, in nieuw venster)</button>
+      <button class="nextbtn" onclick="openInPrintVenster(werkbladCtx.titel, buildWerkbladPaginasHTML(werkbladCtx.titel, werkbladCtx.volgorde, werkbladCtx.foutenjacht))">🖨️ Print werkblad (2 pagina's, in nieuw venster)</button>
       <button class="iconbtn" onclick="renderCorrectiesleutel()">🔑 Correctiesleutel bekijken/printen</button>
     </div>
     <p style="color:#777;font-size:.85rem">Onderstaand is een voorbeeldweergave. Gebruik de knop hierboven om écht af te drukken — dat opent een apart, opgekuist venster dat betrouwbaarder pagineert.</p>
@@ -705,10 +753,15 @@ function renderCorrectiesleutel(){
       ${items.map(item=>`<li>${escHtml(item.options ? item.correct : item.answer)}</li>`).join('')}
     </ol>`;
   });
+  const foutenjachtSleutelHTML = d.foutenjacht ? `
+    <div class="foutenjacht">
+      🎯 <b>Foutenjacht (bonus)</b><br>${escHtml(d.foutenjacht.antwoord)}
+    </div>` : '';
   const sleutelHTML = `<div class="werkblad"><div class="werkblad-pagina">
       <h1>🔑 Correctiesleutel — ${escHtml(d.titel)}</h1>
       <h2>Enkel voor de leerkracht — niet uitdelen aan leerlingen.</h2>
       ${html}
+      ${foutenjachtSleutelHTML}
     </div></div>`;
   root.innerHTML = `
     <button class="backbtn" onclick="renderWerkbladPreview(werkbladCtx.source, werkbladCtx.srcId, werkbladCtx.backAction)">← Terug naar het werkblad</button>

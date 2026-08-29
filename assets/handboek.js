@@ -307,5 +307,50 @@ const HANDBOEK_DATA = {
     vrijetekst: {
       opdracht: "Kruip in de huid van Eduard, de reisleider. Schrijf een kort reisverslag (minstens 3 zinnen) over iets wat je meemaakte, in de verleden tijd."
     }
+  },
+  "TK060605": {
+    tense: "allin",
+    titel: "Werk aan de winkel (TK060605)",
+    /* niveau *: tt/vt/vd naast elkaar, per werkwoord (cirkel, oefening 2) */
+    persoonsvorm: [
+      {prompt:"(winnen, t.t.) Jesse ... altijd.", answer:"wint", level:"*"},
+      {prompt:"(winnen, v.t.) De jongens ... nooit.", answer:"wonnen", level:"*"},
+      {prompt:"(winnen, v.d.) De man heeft ...", answer:"gewonnen", level:"*"},
+      {prompt:"(zitten, t.t.) Oma en opa ... op een bankje.", answer:"zitten", level:"*"},
+      {prompt:"(zitten, v.t.) Wij ... op de eerste rij.", answer:"zaten", level:"*"},
+      {prompt:"(zitten, v.d.) Op welke stoel heb jij ...?", answer:"gezeten", level:"*"},
+      {prompt:"(proberen, t.t.) Ik ... het nog eens.", answer:"probeer", level:"*"},
+      {prompt:"(proberen, v.t.) Sandro ... het ook al.", answer:"probeerde", level:"*"},
+      {prompt:"(proberen, v.d.) De redders hebben het ...", answer:"geprobeerd", level:"*"},
+      {prompt:"(antwoorden, t.t.) Indra ... niet op mijn vraag.", answer:"antwoordt", level:"*"},
+      {prompt:"(antwoorden, v.t.) Vorige week ... hij ook niet.", answer:"antwoordde", level:"*"},
+      {prompt:"(antwoorden, v.d.) Wij hebben op die vraag ...", answer:"geantwoord", level:"*"},
+      /* niveau **: verhaal aanvullen met tegenwoordige tijd, door elkaar (vierkant, oefening 4) */
+      {prompt:"(komen) Stralend ... ik binnen.", answer:"kom", level:"**"},
+      {prompt:"(hebben) Eindelijk ... ik ook een uitnodiging gekregen.", answer:"heb", level:"**"},
+      {prompt:"(krijgen) Eindelijk heb ik ook een uitnodiging ...", answer:"gekregen", level:"**"},
+      {prompt:"(mogen) Ik ... volgende woensdag naar het feestje.", answer:"mag", level:"**"},
+      {prompt:"(uitnodigen) Hij heeft mij ...", answer:"uitgenodigd", level:"**"},
+      {prompt:"(moeten) Nu ... ik een cadeautje kopen.", answer:"moet", level:"**"},
+      {prompt:"(fronsen) Mama ... de wenkbrauwen.", answer:"fronst", level:"**"},
+      {prompt:"(vinden) Mama zegt dat ze het niet zo'n goed idee ...", answer:"vindt", level:"**"},
+      {prompt:"(begrijpen) Ik ... het allemaal niet.", answer:"begrijp", level:"**"},
+      {prompt:"(vragen) Ik ... haar waarom ik niet mag gaan.", answer:"vraag", level:"**"},
+      {prompt:"(liggen) Ik ... te huilen in mijn bed.", answer:"lig", level:"**"},
+      {prompt:"(overtuigen) Hij heeft mama ...", answer:"overtuigd", level:"**"}
+    ],
+    /* niveau **: zin naar de andere tijd herschrijven (vierkant, oefening 3) — richting wisselt per zin */
+    zinvtLabel: "Schrijf deze zin in de andere tijd:",
+    zinvt: [
+      {zin:"Eline viel uit haar bed.", antwoord:"Eline valt uit haar bed."},
+      {zin:"Jasper ging naast zijn stoel zitten.", antwoord:"Jasper gaat naast zijn stoel zitten."},
+      {zin:"De jongen struikelt over zijn hond en breekt zijn teen.", antwoord:"De jongen struikelde over zijn hond en brak zijn teen."},
+      {zin:"De tuinslang zwiert in het rond en maakt me helemaal nat.", antwoord:"De tuinslang zwierde in het rond en maakte me helemaal nat."},
+      {zin:"Wie het laatst lacht, heeft de mop niet begrepen.", antwoord:"Wie het laatst lachte, had de mop niet begrepen."}
+    ],
+    /* niveau ***: AI-gecontroleerd — eigen ervaring vertellen in de tegenwoordige tijd (driehoek, oefening 5) */
+    vrijetekst: {
+      opdracht: "Vertel in enkele zinnen (minstens 3) iets wat jij hebt beleefd, in de tegenwoordige tijd (alsof het nu gebeurt)."
+    }
   }
 };

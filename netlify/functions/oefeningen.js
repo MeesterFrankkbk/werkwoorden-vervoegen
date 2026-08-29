@@ -14,21 +14,35 @@
 // Vereist: het pakket "@netlify/blobs" (npm install @netlify/blobs) en een
 // environment variable TEACHER_PASSWORD in Netlify > Site settings > Environment
 // variables, met exact dezelfde waarde als TEACHER_PASSWORD in app.js.
+//
+// BELANGRIJK: dit bestand gebruikt het klassieke exports.handler(event)-formaat
+// ("Lambda compatibility mode"). In die modus initialiseert Netlify Blobs zich
+// NIET automatisch — connectLambda(event) moet als allereerste ding in de
+// handler aangeroepen worden, anders kan schrijven/lezen naar de verkeerde
+// (niet echt gedeelde) plek gaan zonder dat dit meteen een duidelijke fout geeft.
 
-const { getStore } = require('@netlify/blobs');
+const { getStore, connectLambda } = require('@netlify/blobs');
 
 const STORE_NAME = 'oefeningen';
 const BLOB_KEY = 'overrides';
 
 exports.handler = async function (event) {
+  connectLambda(event); // moet vóór elke getStore()-aanroep gebeuren
+
   const store = getStore(STORE_NAME);
 
   if (event.httpMethod === 'GET') {
     try {
       const data = await store.get(BLOB_KEY, { type: 'json' });
-      return { statusCode: 200, body: JSON.stringify(data || {}) };
+      console.log('[oefeningen] GET -> aantal opgeslagen reeksen:', data ? Object.keys(data).length : 0);
+      return {
+        statusCode: 200,
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+        body: JSON.stringify(data || {}),
+      };
     } catch (err) {
-      return { statusCode: 500, body: JSON.stringify({ error: 'Kon aanpassingen niet ophalen: ' + err.message }) };
+      console.error('[oefeningen] GET-fout:', err);
+      return { statusCode: 500, headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify({ error: 'Kon aanpassingen niet ophalen: ' + err.message }) };
     }
   }
 
@@ -50,9 +64,13 @@ exports.handler = async function (event) {
       const all = (await store.get(BLOB_KEY, { type: 'json' })) || {};
       all[key] = data;
       await store.setJSON(BLOB_KEY, all);
-      return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+      // meteen terug uitlezen als controle, zodat we in de logs zien dat het écht is weggeschreven
+      const check = await store.get(BLOB_KEY, { type: 'json' });
+      console.log('[oefeningen] POST', key, '-> opgeslagen. Totaal aantal reeksen nu:', check ? Object.keys(check).length : 0, '- bevat de nieuwe key?', !!(check && check[key]));
+      return { statusCode: 200, headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify({ ok: true }) };
     } catch (err) {
-      return { statusCode: 500, body: JSON.stringify({ error: 'Kon niet opslaan: ' + err.message }) };
+      console.error('[oefeningen] POST-fout:', err);
+      return { statusCode: 500, headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify({ error: 'Kon niet opslaan: ' + err.message }) };
     }
   }
 
@@ -69,9 +87,10 @@ exports.handler = async function (event) {
       const all = (await store.get(BLOB_KEY, { type: 'json' })) || {};
       delete all[key];
       await store.setJSON(BLOB_KEY, all);
-      return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+      return { statusCode: 200, headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify({ ok: true }) };
     } catch (err) {
-      return { statusCode: 500, body: JSON.stringify({ error: 'Kon niet verwijderen: ' + err.message }) };
+      console.error('[oefeningen] DELETE-fout:', err);
+      return { statusCode: 500, headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify({ error: 'Kon niet verwijderen: ' + err.message }) };
     }
   }
 

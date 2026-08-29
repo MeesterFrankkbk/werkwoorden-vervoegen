@@ -29,7 +29,7 @@ exports.handler = async function (event) {
     geenpv: 'geen persoonsvorm (dus als voltooid deelwoord óf als bijvoeglijk naamwoord)'
   };
   const tenseLabel = tenseLabels[tense] || tenseLabels.tt;
-  const n = Math.min(Math.max(parseInt(count, 10) || 8, 1), 20);
+  const n = Math.min(Math.max(parseInt(count, 10) || 8, 1), 25);
   const levelHint = level === '***'
     ? 'Niveau ***: gebruik iets langere zinnen en iets minder frequente werkwoorden of zinsconstructies.'
     : level === '**'

@@ -352,5 +352,64 @@ const HANDBOEK_DATA = {
     vrijetekst: {
       opdracht: "Vertel in enkele zinnen (minstens 3) iets wat jij hebt beleefd, in de tegenwoordige tijd (alsof het nu gebeurt)."
     }
+  },
+  "TK060704": {
+    tense: "allin",
+    titel: "Op zoek naar hulpverleners (TK060704)",
+    /* niveau *: herkennen + typen in de verleden tijd (cirkel, oefening 2) */
+    identify: [
+      {level:"*", prompt:"lachen", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"lachen → lachte"},
+      {level:"*", prompt:"sterven", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"sterven → stierf"},
+      {level:"*", prompt:"dulden", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"dulden → duldde"},
+      {level:"*", prompt:"proberen", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"proberen → probeerde"},
+      {level:"*", prompt:"genezen", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"genezen → genas"},
+      {level:"*", prompt:"ontmoeten", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"ontmoeten → ontmoetten"},
+      {level:"*", prompt:"voorlezen", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"voorlezen → las voor"},
+      {level:"*", prompt:"branden", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"branden → brandde"},
+      {level:"*", prompt:"gieten", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"gieten → goot"}
+    ],
+    persoonsvorm: [
+      {prompt:"(lachen) Jonas ... toen papa een grapje maakte.", answer:"lachte", level:"*"},
+      {prompt:"(sterven) Die vogel ... aan zijn verwondingen.", answer:"stierf", level:"*"},
+      {prompt:"(dulden) De rechter ... geen tegenspraak.", answer:"duldde", level:"*"},
+      {prompt:"(proberen) Jonas ... een foto te nemen.", answer:"probeerde", level:"*"},
+      {prompt:"(genezen) Gelukkig ... de vogel van zijn wonde.", answer:"genas", level:"*"},
+      {prompt:"(ontmoeten) Wij ... een heel vriendelijke medewerker.", answer:"ontmoetten", level:"*"},
+      {prompt:"(voorlezen) De juf ... het krantenartikel voor.", answer:"las", level:"*"},
+      {prompt:"(branden) Mama ... enkele kaarsen in Scherpenheuvel.", answer:"brandde", level:"*"},
+      {prompt:"(gieten) De ober ... de wijn in een karaf.", answer:"goot", level:"*"},
+      /* niveau **: een persoonsvorm in de ANDERE tijd zetten, in context (vierkant, oefening 3) */
+      {prompt:"Hij wint de wedstrijd in Oost-Vlaanderen. Zet 'wint' in de andere tijd.", answer:"won", level:"**"},
+      {prompt:"Leen schrijft een liefdesbrief aan Stefan. Zet 'schrijft' in de andere tijd.", answer:"schreef", level:"**"},
+      {prompt:"Wij geloofden de fabeltjes van de verkoper niet. Zet 'geloofden' in de andere tijd.", answer:"geloven", level:"**"},
+      {prompt:"De leden van de jeugdbeweging slapen in grote tenten. Zet 'slapen' in de andere tijd.", answer:"sliepen", level:"**"},
+      {prompt:"Els koopt schoenen met hakken om wat groter te lijken. Zet 'koopt' in de andere tijd.", answer:"kocht", level:"**"},
+      {prompt:"De tennisspeelster verloor de wedstrijd. Zet 'verloor' in de andere tijd.", answer:"verliest", level:"**"},
+      {prompt:"De secretaris antwoordde op de brief van de burgers. Zet 'antwoordde' in de andere tijd.", answer:"antwoordt", level:"**"},
+      {prompt:"De verkoopprijs van de papaja's daalde sterk. Zet 'daalde' in de andere tijd.", answer:"daalt", level:"**"},
+      {prompt:"De kinderen kijken naar het jeugdjournaal. Zet 'kijken' in de andere tijd.", answer:"keken", level:"**"},
+      {prompt:"De kersverse vader verfde de kinderkamer in het blauw. Zet 'verfde' in de andere tijd.", answer:"verft", level:"**"},
+      {prompt:"Raphael verliest met een spelletje op de PlayStation. Zet 'verliest' in de andere tijd.", answer:"verloor", level:"**"},
+      {prompt:"De premier drinkt graag een glaasje champagne. Zet 'drinkt' in de andere tijd.", answer:"dronk", level:"**"},
+      /* niveau **: voltooid deelwoord typen (vierkant, oefening 4) */
+      {prompt:"(wachten) Ik heb ...", answer:"gewacht", level:"**"},
+      {prompt:"(fluiten) Ik heb ...", answer:"gefloten", level:"**"},
+      {prompt:"(organiseren) Ik heb ...", answer:"georganiseerd", level:"**"},
+      {prompt:"(herkennen) Ik heb ...", answer:"herkend", level:"**"},
+      {prompt:"(wandelen) Ik heb ...", answer:"gewandeld", level:"**"},
+      {prompt:"(herstellen) Ik heb ...", answer:"hersteld", level:"**"},
+      {prompt:"(trouwen) Ik ben ...", answer:"getrouwd", level:"**"},
+      {prompt:"(verhuizen) Ik ben ...", answer:"verhuisd", level:"**"},
+      {prompt:"(verplichten) Ik ben ...", answer:"verplicht", level:"**"},
+      {prompt:"(beveiligen) Ik heb ...", answer:"beveiligd", level:"**"},
+      {prompt:"(filmen) Ik heb ...", answer:"gefilmd", level:"**"},
+      {prompt:"(planten) Ik heb ...", answer:"geplant", level:"**"},
+      /* niveau ***: nog pittiger door elkaar, tt/vt/vd (driehoek, oefening 5) */
+      {prompt:"(uitnodigen, v.t.) Ahmed ... ons uit voor een kopje thee.", answer:"nodigde", level:"***"},
+      {prompt:"(vluchten, v.t.) Ik ... toen ik de hond zag.", answer:"vluchtte", level:"***"},
+      {prompt:"(waken, t.t.) De agent ... over een duur schilderij.", answer:"waakt", level:"***"},
+      {prompt:"(drinken, v.d.) Wie heeft er van die wijn ...?", answer:"gedronken", level:"***"},
+      {prompt:"(raden, t.t.) ... jij de oplossing van dat raadsel?", answer:"Raad", level:"***"}
+    ]
   }
 };

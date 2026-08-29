@@ -442,8 +442,8 @@ async function deleteAIReeks(id){
      inschatting — test 1x live af en geef door of het geheel iets te kort of te lang
      uitvalt op papier, dan stel ik deze tabel in één regel bij.
 */
-const WERKBLAD_BUDGET = { '*': 10, '**': 6, '***': 4 }; // totaal aantal oefeningen per sectie, NIET meer bovenop elkaar opgeteld met de letter-onthullingsoefeningen (die vallen hier gewoon binnen) — samen dus 20 op het hele werkblad, teruggebracht na een test die op 4 pagina's uitkwam i.p.v. 2
-const WERKBLAD_SPLIT  = 10; // hoeveel oefeningen (over alle secties heen) op pagina 1; de rest naar pagina 2
+const WERKBLAD_BUDGET = { '*': 12, '**': 7, '***': 5 }; // totaal aantal oefeningen per sectie, NIET meer bovenop elkaar opgeteld met de letter-onthullingsoefeningen (die vallen hier gewoon binnen) — samen dus 24 op het hele werkblad; voorzichtig weer een stap omhoog t.o.v. 20, in afwachting van bevestiging hoeveel er écht op 1 pagina past
+const WERKBLAD_SPLIT  = 12; // hoeveel oefeningen (over alle secties heen) op pagina 1; de rest naar pagina 2
 
 /* Een gewone shuffle() geeft elke keer een andere volgorde (prima voor een
    digitale oefenreeks, die mag/moet variëren). Voor het werkblad willen we
@@ -563,18 +563,24 @@ async function gatherWerkbladSecties(source, srcId){
   // ze gegarandeerd op het werkblad en komt dezelfde zin niet ook nog eens
   // gewoon voor. Dit valt BINNEN het totale budget van dat niveau, niet
   // erbovenop (dat veroorzaakte net de pagina-overloop).
-  // BELANGRIJK: we knippen hier de "(infinitief, ...)"-hint vooraan de zin
-  // weg, want die zou de oplossing net verklappen naast de letter-hints.
+  // De "(infinitief, ...)"-hint blijft WEL gewoon staan: die zegt enkel welk
+  // werkwoord het is, niet welke vorm/spelling — samen met de letter-hints
+  // blijft het dus een eerlijke puzzel. Enkel echte, volledige zinnen komen in
+  // aanmerking (minstens 4 woorden na het weghalen van de leemte) — een kaal
+  // fragment als "ik ..." geeft anders geen enkel aanknopingspunt.
   const gehusseldPerNiveau = { '*':[], '**':[], '***':[] };
   ['*','**','***'].forEach((lvl,i)=>{
     const gewenst = LETTERHINT_COUNT[lvl];
     if(gewenst<=0) return;
-    const kandidaten = seededShuffle(perNiveau[lvl].Z.filter(it=>it.answer && it.answer.length>=3 && !it.answer.includes(' ') && it.answer!=='(eigen antwoord)'), seedBasis + 500 + i);
+    const kandidaten = seededShuffle(perNiveau[lvl].Z.filter(it=>
+      it.answer && it.answer.length>=3 && !it.answer.includes(' ') && it.answer!=='(eigen antwoord)'
+      && it.prompt.replace('...','').trim().split(/\s+/).filter(Boolean).length>=4
+    ), seedBasis + 500 + i);
     const gekozen = kandidaten.slice(0, gewenst);
     const gekozenKeys = new Set(gekozen.map(it=>it.prompt+'|'+it.answer));
     perNiveau[lvl].Z = perNiveau[lvl].Z.filter(it=> !gekozenKeys.has(it.prompt+'|'+it.answer));
     gehusseldPerNiveau[lvl] = gekozen.map((it,j)=>({
-      prompt: it.prompt.replace(/^\([^)]*\)\s*/, ''), // "(infinitief, ...)" weg, zou de letter-hint verklappen
+      prompt: it.prompt,
       answer: it.answer,
       letterhint: bouwLetterHint(it.answer, LETTERHINT_PERCENTAGE[lvl], seedBasis + 700 + i*50 + j)
     }));

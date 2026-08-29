@@ -48,7 +48,7 @@ const HANDBOEK_DATA = {
       {prefix:"(interviewen) Morgen", suffix:"de journaliste een bekende auteur.", answer:"interviewt", options:["interview","interviewt","interviewen"]},
       {prefix:"(verschillen) Jouw leven", suffix:"nogal van het leven van je ouders.", answer:"verschilt", options:["verschil","verschilt","verschillen"]},
       {prefix:"(bestaan) Computers, mobiele telefoons en tablets", suffix:"nog niet zo lang.", answer:"bestaan", options:["bestaat","bestaan","besta"]},
-      {prefix:"(vergeten) Je", suffix:"dat je ouders briefjes schreven.", answer:"vergeet", options:["vergeet","vergeten","vergeette"]},
+      {prefix:"(vergeten) Je", suffix:"dat je ouders briefjes schreven.", answer:"vergeet", options:["vergeet","vergeten","vergat"]},
       {prefix:"(sturen) Of", suffix:"jij nog wel eens een papieren brief?", answer:"stuur", options:["stuur","stuurt","sturen"]},
       {prefix:"(verwachten) Een futuroloog schreef dat hij", suffix:"dat het gedaan is met onze privacy.", answer:"verwacht", options:["verwacht","verwachtte","verwachten"]},
       {prefix:"(vernietigen) Digitale berichten blijven vindbaar, ook al", suffix:"je ze.", answer:"vernietig", options:["vernietig","vernietigt","vernietigen"]},
@@ -87,16 +87,16 @@ const HANDBOEK_DATA = {
     ],
     /* niveau *: kies de juiste verleden vorm in de zin (meerkeuze, extra uitdaging naast het herkennen) */
     fillin: [
-      {level:"*", prefix:"(koken) Mama", suffix:"gisteren pasta.", answer:"kookte", options:["kookte","kookde","koken"]},
-      {level:"*", prefix:"(bakken) Papa", suffix:"een taart voor mijn verjaardag.", answer:"bakte", options:["bakte","bakkte","bakken"]},
-      {level:"*", prefix:"(kopen) Ik", suffix:"een nieuwe fiets.", answer:"kocht", options:["kocht","kopte","kochtte"]},
-      {level:"*", prefix:"(bereiden) De chef", suffix:"een heerlijk gerecht.", answer:"bereidde", options:["bereidde","bereide","bereidte"]},
-      {level:"*", prefix:"(beloven) Zij", suffix:"het nooit meer te doen.", answer:"beloofde", options:["beloofde","beloofte","belofde"]},
-      {level:"*", prefix:"(zoeken) Wij", suffix:"de hele tuin af.", answer:"zochten", options:["zochten","zoekten","zoeken"]},
-      {level:"**", prefix:"(slapen) De baby's", suffix:"de hele namiddag.", answer:"sliepen", options:["sliepen","slaapten","slapten"]},
-      {level:"**", prefix:"(lopen) Ricardo", suffix:"zondag een goede wedstrijd.", answer:"liep", options:["liep","loopte","leep"]},
-      {level:"**", prefix:"(vinden) De toeschouwers", suffix:"het een spannende wedstrijd.", answer:"vonden", options:["vonden","vindden","vindten"]},
-      {level:"**", prefix:"(zien) Hij", suffix:"een grote giraf langs de kant van de weg.", answer:"zag", options:["zag","ziede","zaage"]}
+      {level:"*", prefix:"(koken) Mama", suffix:"gisteren pasta.", answer:"kookte", options:["kookte","kook","koken"]},
+      {level:"*", prefix:"(bakken) Papa", suffix:"een taart voor mijn verjaardag.", answer:"bakte", options:["bakte","bak","bakken"]},
+      {level:"*", prefix:"(kopen) Ik", suffix:"een nieuwe fiets.", answer:"kocht", options:["kocht","koop","kopen"]},
+      {level:"*", prefix:"(bereiden) De chef", suffix:"een heerlijk gerecht.", answer:"bereidde", options:["bereidde","bereid","bereiden"]},
+      {level:"*", prefix:"(beloven) Zij", suffix:"het nooit meer te doen.", answer:"beloofde", options:["beloofde","beloof","beloven"]},
+      {level:"*", prefix:"(zoeken) Wij", suffix:"de hele tuin af.", answer:"zochten", options:["zochten","zoeken","zoekt"]},
+      {level:"**", prefix:"(slapen) De baby's", suffix:"de hele namiddag.", answer:"sliepen", options:["sliepen","slapen","slaapt"]},
+      {level:"**", prefix:"(lopen) Ricardo", suffix:"zondag een goede wedstrijd.", answer:"liep", options:["liep","loopt","lopen"]},
+      {level:"**", prefix:"(vinden) De toeschouwers", suffix:"het een spannende wedstrijd.", answer:"vonden", options:["vonden","vinden","vindt"]},
+      {level:"**", prefix:"(zien) Hij", suffix:"een grote giraf langs de kant van de weg.", answer:"zag", options:["zag","ziet","zien"]}
     ],
     /* niveau *: enkele typ-oefeningen (naast de stam-oefening in Exploreren), niveau ** = de rest bij "Heden en verleden" */
     persoonsvorm: [

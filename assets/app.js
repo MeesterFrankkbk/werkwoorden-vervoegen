@@ -1053,11 +1053,12 @@ function renderHandboekNiveau(code){
       if((lesData.fillin||[]).some(it=>(it.level||'**')==='**')) parts.push('zinnen aanvullen');
       if((lesData.persoonsvorm||[]).some(it=>it.level==='**')) parts.push('verleden tijd invullen');
       if(lesData.zinvt && (lesData.zinvtLevel||'**')==='**') parts.push('hele zin herschrijven');
+      if((Array.isArray(lesData.vrijetekst)?lesData.vrijetekst:(lesData.vrijetekst?[lesData.vrijetekst]:[])).some(vt=>(vt.level||'***')==='**')) parts.push('AI-gecontroleerd schrijven');
     } else {
       if((lesData.persoonsvorm||[]).some(it=>it.level==='***')) parts.push('extra pittige vragen');
       if(lesData.zinvt && lesData.zinvtLevel==='***') parts.push('hele zin herschrijven');
       if(lesData.vrijezin) parts.push('zelf zinnen schrijven');
-      if(lesData.vrijetekst) parts.push('kort verslag schrijven');
+      if((Array.isArray(lesData.vrijetekst)?lesData.vrijetekst:(lesData.vrijetekst?[lesData.vrijetekst]:[])).some(vt=>(vt.level||'***')==='***')) parts.push('kort verslag schrijven');
       if(lesData.vrijezin || lesData.vrijetekst) parts.push('AI-gecontroleerd');
     }
     return parts.join(' + ') || 'oefeningen';
@@ -1093,7 +1094,9 @@ function startHandboekRun(code, level){
   shuffle((lesData.fillin||[]).filter(it=>order[it.level||'**']<=cap)).forEach(it=> seq.push({type:'fillin', data:{...it, level: it.level||'**'}}));
   if(cap>=order[lesData.zinvtLevel||'**']) shuffle((lesData.zinvt||[]).map(it=>({...it, label: it.label||lesData.zinvtLabel}))).forEach(it=> seq.push({type:'zinvt', data:it}));
   if(cap>=3) shuffle([...(lesData.vrijezin||[])]).forEach(it=> seq.push({type:'vrijezin', data:it}));
-  if(cap>=3 && lesData.vrijetekst) seq.push({type:'vrijetekst', data:lesData.vrijetekst});
+  (Array.isArray(lesData.vrijetekst) ? lesData.vrijetekst : (lesData.vrijetekst ? [lesData.vrijetekst] : []))
+    .filter(vt=>order[vt.level||'***']<=cap)
+    .forEach(vt=> seq.push({type:'vrijetekst', data:vt}));
   seq.push({type:'end'});
   run = { key:lesData.tense, setNum:'hb_'+code, level, seq, i:0, correct:0, total:0, wrong:[], good:[],
     color:t.color, title:reeksNaam('hb_'+code,'1'), streak:0, bestStreak:0,

@@ -192,5 +192,45 @@ const HANDBOEK_DATA = {
     vrijetekst: {
       opdracht: "Kies drie van deze onderwerpen: de jongens, de juf, de agent, mijn ouders, de buschauffeur, de meisjes van de klas, haar buurmeisje. Maak voor elk een goede zin in de verleden tijd, met een werkwoord uit deze lijst: snijden, gamen, chatten, antwoorden, rijden, kopen, verhuizen."
     }
+  },
+  "TK060404": {
+    tense: "geenpv",
+    titel: "In de voetsporen van Ramses (TK060404)",
+    brontekst: {
+      titel: "Hiërogliefen ... rare tekens?",
+      tekst: "De hiërogliefen werden vroeger gebruikt bij de Egyptenaren. De stenen muren van de tempels werden versierd met hiërogliefen. In de hiërogliefen zijn woorden of klanken uitgebeeld. De Egyptische hiërogliefen werden lange tijd als onvertaalbare tekens beschouwd. De laatste hiërogliefen werden geschreven in de vierde eeuw, toen de laatste Egyptische tempel door de Romeinen werd gesloten. De kennis van de hiërogliefen ging verloren. In 1822 heeft de Fransman Champollion de tekens als eerste ontcijferd."
+    },
+    /* niveau *: welke spellingstrategie hoort bij dit voltooid deelwoord? (cirkel, oefening 2) */
+    identify: [
+      {level:"*", prompt:"opengesteld", options:["verlengingsregel","verdubbelen","verenkelen","hoorwoord","weetwoord"], correctIndex:0, extraInfo:"is een Romeinse tempel opengesteld voor het publiek"},
+      {level:"*", prompt:"uitgenodigd", options:["verlengingsregel","verdubbelen","verenkelen","hoorwoord","weetwoord"], correctIndex:0, extraInfo:"werden als eersten uitgenodigd voor een rondleiding"},
+      {level:"*", prompt:"gehouden", options:["verlengingsregel","verdubbelen","verenkelen","hoorwoord","weetwoord"], correctIndex:3, extraInfo:"heeft een toespraak gehouden"},
+      {level:"*", prompt:"weggereden", options:["verlengingsregel","verdubbelen","verenkelen","hoorwoord","weetwoord"], correctIndex:2, extraInfo:"is hij met zijn motor weggereden"}
+    ],
+    /* niveau **: voltooid deelwoord typen in een zin (vierkant, oefening 3) */
+    persoonsvorm: [
+      {prompt:"(lopen) Mama en papa hebben heel hard ... om hun vliegtuig naar Egypte nog te halen.", answer:"gelopen", level:"**"},
+      {prompt:"(betalen) Gelukkig heeft mijn oma hun dure vliegtuigticket ...", answer:"betaald", level:"**"},
+      {prompt:"(controleren) De douane heeft alle bagage ...", answer:"gecontroleerd", level:"**"},
+      {prompt:"(wachten) Oom Vincent heeft wel vijf uur ... in de luchthaven.", answer:"gewacht", level:"**"},
+      {prompt:"(aanbranden) Op haar postkaart schrijft Hanne over de ... soep.", answer:"aangebrande", level:"**"},
+      {prompt:"(opstappen) Rond zeven uur is Hanne eindelijk ...", answer:"opgestapt", level:"**"},
+      {prompt:"(leren) Op de vlucht van Egypte naar België heb ik mijn toets Frans nog ...", answer:"geleerd", level:"**"},
+      {prompt:"(genieten) Ik heb enorm van mijn reis ...", answer:"genoten", level:"**"},
+      {prompt:"(komen) Aan het mooie liedje is nu een einde ...", answer:"gekomen", level:"**"}
+    ],
+    /* niveau **: van bedrijvende naar lijdende vorm herschrijven (vierkant, oefening 4) */
+    zinvtLabel: "Herschrijf deze zin in de lijdende vorm (wordt/worden ... door ... + voltooid deelwoord):",
+    zinvt: [
+      {zin:"Buitenlandse toeristen maken boottochten op de Nijl.", antwoord:"Op de Nijl worden door buitenlandse toeristen boottochten gemaakt."},
+      {zin:"Dagelijks vliegt een luchtvaartmaatschappij richting Egypte.", antwoord:"Er wordt dagelijks naar Egypte gevlogen."},
+      {zin:"Veel mensen logeren er in mooie hotels.", antwoord:"Er wordt in mooie hotels gelogeerd."},
+      {zin:"Toeristen kopen plaatselijke souvenirs.", antwoord:"Er worden plaatselijke souvenirs door de toeristen gekocht."},
+      {zin:"De handelaars onderhandelen dan over de prijs.", antwoord:"Er wordt dan over de prijs onderhandeld."}
+    ],
+    /* niveau ***: AI-gecontroleerd — kort informatief tekstje met correct gebruik van voltooid deelwoorden (driehoek, oefening 5) */
+    vrijetekst: {
+      opdracht: "Schrijf een kort informatief tekstje (minstens 3 zinnen) over één van deze onderwerpen: hiërogliefen, Ramses, Tongeren, Egypte of piramide. Gebruik minstens twee voltooide deelwoorden (bv. gebouwd, ontdekt, gevonden)."
+    }
   }
 };

@@ -419,24 +419,6 @@ async function deleteAIReeks(id){
    gewone tt/vt/geenpv-reeksen. Elke losse zin in de reeks draagt al een eigen
    "level"-veld (meegegeven bij het genereren) — cumulatief filteren op dat
    niveau geeft dus exact hetzelfde gedrag als elders in de app. */
-/* ---------- Werkbladgenerator (printbaar op papier, 2 pagina's, met aparte correctiesleutel) ----------
-   Belangrijke ontwerpkeuzes:
-   - Niet alles wat digitaal bestaat past op papier: enkel meerkeuze (identify) en
-     invuloefeningen (persoonsvorm/fillin/stam/written/AI-zinnen) worden gebruikt.
-     Het geheugenspel, de klik-in-tekst-oefening en de AI-nagekeken vrije tekst
-     laten we dus bewust weg.
-   - We gebruiken bewust MINDER oefeningen dan er digitaal beschikbaar zijn (zie
-     WERKBLAD_BUDGET) — net dat maakt "gegarandeerd op 2 pagina's" mogelijk, en
-     geeft de leerling ruimte om een antwoord te schrijven i.p.v. een drukke bladzijde.
-   - De verdeling over pagina 1/2 ligt vast per aantal items (WERKBLAD_SPLIT), niet
-     aan de browser overgelaten: zo kan een oefening nooit in twee stukken knippen.
-   - Dit is getest op correcte HTML/structuur, maar NIET op een echte printer/browser
-     (dat kan ik hier niet). De aantallen hieronder zijn een voorzichtige eerste
-     inschatting — test 1x live af en geef door of een niveau iets te kort of te lang
-     uitvalt op papier, dan stel ik deze tabel in één regel bij.
-*/
-const WERKBLAD_BUDGET = { '*': 8, '**': 12, '***': 16 }; // totaal aantal oefeningen op het werkblad
-const WERKBLAD_SPLIT  = { '*': 4, '**': 5, '***': 6 };   // hoeveel daarvan op pagina 1 (rest -> pagina 2)
 
 /* Een gewone shuffle() geeft elke keer een andere volgorde (prima voor een
    digitale oefenreeks, die mag/moet variëren). Voor het werkblad willen we
@@ -465,77 +447,123 @@ function seededShuffle(arr, seed){
   return a;
 }
 
-async function gatherWerkbladItems(source, srcId, level){
-  const order = {'*':1,'**':2,'***':3};
-  const cap = order[level];
-  let titel = '', deelA = [], deelZinnen = [], deelStam = [];
-  const cleanPrompt = (t)=> (t||'').replace(/^\d+\)\s*/, '').trim();
+/* ---------- Werkbladgenerator (printbaar op papier, 2 pagina's, met aparte correctiesleutel) ----------
+   Belangrijke ontwerpkeuzes:
+   - Niet alles wat digitaal bestaat past op papier: enkel meerkeuze (identify) en
+     invuloefeningen (persoonsvorm/fillin/stam/written/AI-zinnen) worden gebruikt.
+     Het geheugenspel, de klik-in-tekst-oefening en de AI-nagekeken vrije tekst
+     laten we dus bewust weg.
+   - Eén werkblad toont alle drie de niveaus (★/★★/★★★) samen, elk als een eigen,
+     duidelijk afgebakende sectie — net als in het originele handboek. Elke sectie
+     gebruikt enkel oefeningen die STRIKT bij dat niveau horen (dus niet cumulatief),
+     zodat dezelfde oefening nooit in twee secties tegelijk verschijnt.
+   - We gebruiken bewust MINDER oefeningen dan er digitaal beschikbaar zijn (zie
+     WERKBLAD_BUDGET) — net dat maakt "gegarandeerd op 2 pagina's" mogelijk, en
+     geeft de leerling ruimte om een antwoord te schrijven i.p.v. een drukke bladzijde.
+   - De verdeling over pagina 1/2 ligt vast (WERKBLAD_SPLIT), niet aan de browser
+     overgelaten: zo kan een oefening nooit in twee stukken knippen. Een sectie zelf
+     mag wel over de paginagrens lopen (bv. ★★ begint onderaan pagina 1 en loopt
+     door op pagina 2) — enkel losse oefeningen blijven altijd heel.
+   - Dit is getest op correcte HTML/structuur, maar NIET op een echte printer/browser
+     (dat kan ik hier niet). De aantallen hieronder zijn een voorzichtige eerste
+     inschatting — test 1x live af en geef door of het geheel iets te kort of te lang
+     uitvalt op papier, dan stel ik deze tabel in één regel bij.
+*/
+const WERKBLAD_BUDGET = { '*': 6, '**': 5, '***': 5 }; // aantal oefeningen per sectie (niet cumulatief, samen dus 16 op het hele werkblad)
+const WERKBLAD_SPLIT  = 7; // hoeveel oefeningen (over alle secties heen) op pagina 1; de rest naar pagina 2
 
-  if(source==='handboek'){
-    const d = await getLesData(srcId);
-    titel = (d.titel||'').replace(/\s*\(TK\d+\)\s*$/, '');
-    (d.identify||[]).filter(it=>order[it.level]<=cap && !it.plain).forEach(it=>
-      deelA.push({ prompt: cleanPrompt(it.prompt), options: it.options, correct: it.options[it.correctIndex] }));
-    (d.persoonsvorm||[]).filter(it=>order[it.level||'*']<=cap).forEach(it=>
-      deelZinnen.push({ prompt: cleanPrompt(it.prompt), answer: it.answer }));
-    (d.fillin||[]).filter(it=>order[it.level]<=cap).forEach(it=>
-      deelZinnen.push({ prompt: `${it.prefix} ... ${it.suffix}`.trim(), answer: it.answer }));
-    // "stam" geldt in de digitale app als niveau *-materiaal, en komt dus ook op
-    // hogere niveaus mee (cumulatief) — maar we houden het als APARTE pool, zodat
-    // deze korte, eenvoudige oefeningen de zin-invuloefeningen nooit overstemmen
-    // (sommige lessen hebben 10 stam-items tegenover maar 4-5 echte zinnen).
-    (d.stam||[]).forEach(it=>
-      deelStam.push({ prompt: `Geef de stam van "${it.infinitief}".`, answer: it.antwoord }));
-    if(cap>=3 && d.vrijezin && d.vrijezin.length){
-      const v = d.vrijezin[Math.floor(Math.random()*d.vrijezin.length)];
-      deelZinnen.push({ prompt: `Schrijf zelf een goede zin met het werkwoord "${v.infinitief}".`, answer: '(eigen antwoord)' });
-    }
-  } else if(source==='reeks'){
-    const t = WERKWOORDEN_DATA[srcId.key];
-    const s = await getSet(srcId.key, srcId.setNum);
-    titel = t.title + ' — ' + reeksNaam(srcId.key, srcId.setNum);
-    (s.identify||[]).filter(it=>order[it.level]<=cap).forEach(it=>
-      deelA.push({ prompt: cleanPrompt(it.prompt), options: it.options, correct: it.options[it.correctIndex] }));
-    (s.fillin||[]).filter(it=>order[it.level]<=cap).forEach(it=>
-      deelZinnen.push({ prompt: `${it.prefix} ... ${it.suffix}`.trim(), answer: it.answer }));
-    if(cap>=3) (s.written||[]).forEach(it=> deelZinnen.push({ prompt: cleanPrompt(it.prompt), answer: it.answer }));
-  } else if(source==='ai'){
-    const item = loadAIReeksen().find(r=>r.id===srcId);
-    titel = '✨ ' + item.naam;
-    item.exercises.filter(ex=>order[ex.level||'*']<=cap).forEach(ex=>
-      deelZinnen.push({ prompt: `${ex.prefix||''} ... ${ex.suffix||''}`.trim(), answer: ex.answer }));
-  }
+/* Een gewone shuffle() geeft elke keer een andere volgorde (prima voor een
+   digitale oefenreeks, die mag/moet variëren). Voor het werkblad willen we
+   net het omgekeerde: dezelfde les moet altijd exact dezelfde oefeningen (en
+   dus dezelfde correctiesleutel) opleveren, ongeacht hoe vaak je het opnieuw
+   opent. Daarvoor gebruiken we een kleine, seed-bare generator (mulberry32)
+   i.p.v. Math.random(): dezelfde seed geeft altijd dezelfde "willekeurige"
+   volgorde. */
+function stringHash(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++){ h = (Math.imul(31,h) + str.charCodeAt(i))|0; }
+  return h>>>0;
+}
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = (seed + 0x6D2B79F5)|0;
+    let t = Math.imul(seed ^ seed>>>15, 1 | seed);
+    t = (t + Math.imul(t ^ t>>>7, 61 | t)) ^ t;
+    return ((t ^ t>>>14) >>> 0) / 4294967296;
+  };
+}
+function seededShuffle(arr, seed){
+  const rng = mulberry32(seed);
+  const a = [...arr];
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
 
-  // Vast (niet willekeurig bij elke keer opnieuw genereren) mengen binnen elke
-  // pool — de seed hangt af van de les/reeks + het niveau, zodat DEZELFDE les op
-  // hetzelfde niveau altijd hetzelfde werkblad (en dus dezelfde correctiesleutel)
-  // oplevert, ongeacht hoe vaak je het opnieuw opent. Nadien verdelen we over het
-  // vaste budget voor dit niveau: max. 40% meerkeuze (deel A), max. 30% korte
-  // stam-oefeningen, de rest (minstens 30%, meestal veel meer) altijd echte
-  // zin-invuloefeningen. Als een pool te klein is voor haar aandeel, vult een
-  // andere pool het tekort automatisch aan — zo raakt het budget altijd volledig
-  // gevuld zolang er ergens genoeg materiaal is.
-  const seedBasis = stringHash(source + '|' + JSON.stringify(srcId) + '|' + level);
+/* Verzamelt, voor één specifiek niveau (dus NIET cumulatief), een eerlijk
+   gemengde selectie oefeningen: max. 40% meerkeuze, max. 30% korte
+   stam-oefeningen, de rest altijd echte zin-invuloefeningen (met automatische
+   aanvulling vanuit een andere pool als er ergens te weinig materiaal is). */
+function kiesVoorNiveau(deelA, deelZinnen, deelStam, budget, seedBasis){
   deelA = seededShuffle(deelA, seedBasis + 1);
   deelZinnen = seededShuffle(deelZinnen, seedBasis + 2);
   deelStam = seededShuffle(deelStam, seedBasis + 3);
-  const budget = WERKBLAD_BUDGET[level];
   const nemenA = Math.min(deelA.length, Math.round(budget*0.4));
   let restBudget = budget - nemenA;
   const nemenStam = Math.min(deelStam.length, Math.round(restBudget*0.3));
   restBudget -= nemenStam;
   let nemenZinnen = Math.min(deelZinnen.length, restBudget);
   let tekort = restBudget - nemenZinnen;
-  // tekort (te weinig zinnen) eerst aanvullen met extra stam, dan evt. extra meerkeuze
   const extraStam = Math.min(deelStam.length - nemenStam, tekort);
   tekort -= extraStam;
   const extraA = Math.min(deelA.length - nemenA, tekort);
+  const gekozenA = deelA.slice(0, nemenA + extraA);
+  let gekozenB = [...deelZinnen.slice(0, nemenZinnen), ...deelStam.slice(0, nemenStam + extraStam)];
+  gekozenB = seededShuffle(gekozenB, seedBasis + 4); // stam en zinnen door elkaar, niet als twee blokken na elkaar
+  return [...gekozenA, ...gekozenB];
+}
 
-  deelA = deelA.slice(0, nemenA + extraA);
-  let deelB = [...deelZinnen.slice(0, nemenZinnen), ...deelStam.slice(0, nemenStam + extraStam)];
-  deelB = seededShuffle(deelB, seedBasis + 4); // stam en zinnen door elkaar, niet als twee blokken na elkaar
+async function gatherWerkbladSecties(source, srcId){
+  const cleanPrompt = (t)=> (t||'').replace(/^\d+\)\s*/, '').trim();
+  let titel = '';
+  // per niveau een eigen, NIET-cumulatieve pool (dus enkel items die exact dat niveau dragen)
+  const perNiveau = { '*': {A:[],Z:[],S:[]}, '**': {A:[],Z:[],S:[]}, '***': {A:[],Z:[],S:[]} };
 
-  return { titel, deelA, deelB };
+  if(source==='handboek'){
+    const d = await getLesData(srcId);
+    titel = (d.titel||'').replace(/\s*\(TK\d+\)\s*$/, '');
+    (d.identify||[]).filter(it=>!it.plain && perNiveau[it.level]).forEach(it=>
+      perNiveau[it.level].A.push({ prompt: cleanPrompt(it.prompt), options: it.options, correct: it.options[it.correctIndex] }));
+    (d.persoonsvorm||[]).forEach(it=>{ const lvl = it.level||'*'; if(perNiveau[lvl]) perNiveau[lvl].Z.push({ prompt: cleanPrompt(it.prompt), answer: it.answer }); });
+    (d.fillin||[]).forEach(it=>{ if(perNiveau[it.level]) perNiveau[it.level].Z.push({ prompt: `${it.prefix} ... ${it.suffix}`.trim(), answer: it.answer }); });
+    // "stam" geldt in de digitale app als niveau *-materiaal -> enkel bij ★
+    (d.stam||[]).forEach(it=>
+      perNiveau['*'].S.push({ prompt: `Geef de stam van "${it.infinitief}".`, answer: it.antwoord }));
+    if(d.vrijezin && d.vrijezin.length){
+      const v = d.vrijezin[0];
+      perNiveau['***'].Z.push({ prompt: `Schrijf zelf een goede zin met het werkwoord "${v.infinitief}".`, answer: '(eigen antwoord)' });
+    }
+  } else if(source==='reeks'){
+    const t = WERKWOORDEN_DATA[srcId.key];
+    const s = await getSet(srcId.key, srcId.setNum);
+    titel = t.title + ' — ' + reeksNaam(srcId.key, srcId.setNum);
+    (s.identify||[]).filter(it=>perNiveau[it.level]).forEach(it=>
+      perNiveau[it.level].A.push({ prompt: cleanPrompt(it.prompt), options: it.options, correct: it.options[it.correctIndex] }));
+    (s.fillin||[]).filter(it=>perNiveau[it.level]).forEach(it=>
+      perNiveau[it.level].Z.push({ prompt: `${it.prefix} ... ${it.suffix}`.trim(), answer: it.answer }));
+    (s.written||[]).forEach(it=> perNiveau['***'].Z.push({ prompt: cleanPrompt(it.prompt), answer: it.answer }));
+  } else if(source==='ai'){
+    const item = loadAIReeksen().find(r=>r.id===srcId);
+    titel = '✨ ' + item.naam;
+    item.exercises.forEach(ex=>{ const lvl = ex.level||'*'; if(perNiveau[lvl]) perNiveau[lvl].Z.push({ prompt: `${ex.prefix||''} ... ${ex.suffix||''}`.trim(), answer: ex.answer }); });
+  }
+
+  const seedBasis = stringHash(source + '|' + JSON.stringify(srcId));
+  const secties = {};
+  ['*','**','***'].forEach((lvl,i)=>{
+    const p = perNiveau[lvl];
+    secties[lvl] = kiesVoorNiveau(p.A, p.Z, p.S, WERKBLAD_BUDGET[lvl], seedBasis + i*100);
+  });
+  return { titel, secties };
 }
 
 function renderWerkbladItemsHTML(items, startNr){
@@ -574,21 +602,25 @@ const WERKBLAD_STYLE = `
   .leemte { display:inline-block; border-bottom:1.5px solid #333; min-width:90px; height:1em; vertical-align:middle; }
   .mc-opties { color:#333; }
   .mc-optie { border:1.5px solid #999; border-radius:12px; padding:1px 10px; display:inline-block; margin-top:3px; }
-  .deeltitel { font-weight:bold; margin:6px 0 4px 0; }
+  .sectietitel { font-weight:bold; font-size:15px; margin:10px 0 4px 0; break-after:avoid; page-break-after:avoid; }
 </style>`;
 
-let werkbladCtx = null; // { source, srcId, level, backAction, titel, deelA, deelB, alle }
+let werkbladCtx = null; // { source, srcId, backAction, titel, secties, volgorde: [{lvl, item}] }
 
-async function renderWerkbladPreview(source, srcId, level, backAction){
+async function renderWerkbladPreview(source, srcId, backAction){
   if(!state.teacherMode) return;
   stopSpeech();
   root.innerHTML = `<p class="no-print">Werkblad wordt klaargemaakt...</p>`;
-  const { titel, deelA, deelB } = await gatherWerkbladItems(source, srcId, level);
-  const alle = [...deelA, ...deelB];
-  werkbladCtx = { source, srcId, level, backAction, titel, deelA, deelB, alle };
-  const splitAt = Math.min(WERKBLAD_SPLIT[level], alle.length);
-  const pagina1 = alle.slice(0, splitAt);
-  const pagina2 = alle.slice(splitAt);
+  const { titel, secties } = await gatherWerkbladSecties(source, srcId);
+  // doorlopende lijst van {lvl, item}, in de vaste volgorde ★ -> ★★ -> ★★★,
+  // dit is exact wat er op de 2 pagina's komt (en dus ook in de correctiesleutel)
+  const volgorde = [];
+  ['*','**','***'].forEach(lvl=> secties[lvl].forEach(item=> volgorde.push({lvl, item})));
+  werkbladCtx = { source, srcId, backAction, titel, secties, volgorde };
+
+  const splitAt = Math.min(WERKBLAD_SPLIT, volgorde.length);
+  const pagina1 = volgorde.slice(0, splitAt);
+  const pagina2 = volgorde.slice(splitAt);
 
   const headerHTML = `
     <div class="werkblad-header">
@@ -600,21 +632,26 @@ async function renderWerkbladPreview(source, srcId, level, backAction){
       <img src="assets/MELK-logo.png" alt="Logo MELK">
     </div>`;
 
-  // pagina 1 en pagina 2 elk apart samenstellen, met eigen doorlopende nummering
-  // en (indien van toepassing) een "Deel A / Deel B"-titel op de plek waar dat
-  // onderdeel effectief begint.
-  function buildPaginaHTML(items, offsetGlobal){
+  // Elke pagina toont doorlopend genummerde oefeningen; telkens wanneer het
+  // niveau wisselt (bv. van ★ naar ★★) komt er een nieuwe sectietitel, ook al
+  // loopt diezelfde sectie gewoon door van pagina 1 naar pagina 2.
+  function buildPaginaHTML(rijen, offsetGlobal){
     let html = '';
+    let huidigNiveau = null;
+    let buffer = [];
     let nr = offsetGlobal + 1;
-    const aHier = items.filter(it=>it.options);
-    const bHier = items.filter(it=>!it.options);
-    if(aHier.length){
-      html += `<div class="deeltitel">Deel A — omcirkel het juiste antwoord</div><ol class="oefeningen">${renderWerkbladItemsHTML(aHier, nr)}</ol>`;
-      nr += aHier.length;
-    }
-    if(bHier.length){
-      html += `<div class="deeltitel">Deel B — vul de juiste vorm in</div><ol class="oefeningen">${renderWerkbladItemsHTML(bHier, nr)}</ol>`;
-    }
+    const flush = ()=>{
+      if(buffer.length){ html += `<ol class="oefeningen">${renderWerkbladItemsHTML(buffer, nr)}</ol>`; nr += buffer.length; buffer = []; }
+    };
+    rijen.forEach(({lvl,item})=>{
+      if(lvl!==huidigNiveau){
+        flush();
+        huidigNiveau = lvl;
+        html += `<div class="sectietitel">Oefeningen ${lvl}</div>`;
+      }
+      buffer.push(item);
+    });
+    flush();
     return html;
   }
 
@@ -628,7 +665,7 @@ async function renderWerkbladPreview(source, srcId, level, backAction){
     <div class="werkblad">
       <div class="werkblad-pagina">
         ${headerHTML}
-        <h1>${escHtml(titel)} ${level}</h1>
+        <h1>${escHtml(titel)}</h1>
         <h2>Werkblad — vul zelf in wat gevraagd wordt.</h2>
         ${buildPaginaHTML(pagina1, 0)}
       </div>
@@ -639,21 +676,27 @@ async function renderWerkbladPreview(source, srcId, level, backAction){
 function renderCorrectiesleutel(){
   if(!state.teacherMode || !werkbladCtx) return;
   const d = werkbladCtx;
-  const rows = d.alle.map(it=>{
-    const antwoord = it.options ? it.correct : it.answer;
-    return `<li>${escHtml(antwoord)}</li>`;
-  }).join('');
+  let html = '';
+  ['*','**','***'].forEach(lvl=>{
+    const items = d.volgorde.filter(r=>r.lvl===lvl).map(r=>r.item);
+    if(!items.length) return;
+    const startNr = d.volgorde.findIndex(r=>r.lvl===lvl) + 1;
+    html += `<div class="sectietitel">Oefeningen ${lvl}</div><ol class="oefeningen" start="${startNr}">
+      ${items.map(item=>`<li>${escHtml(item.options ? item.correct : item.answer)}</li>`).join('')}
+    </ol>`;
+  });
   root.innerHTML = `
     ${WERKBLAD_STYLE}
     <div class="no-print" style="margin-bottom:1rem;display:flex;gap:.6rem">
-      <button class="backbtn" onclick="renderWerkbladPreview(werkbladCtx.source, werkbladCtx.srcId, werkbladCtx.level, werkbladCtx.backAction)">← Terug naar het werkblad</button>
+      <button class="backbtn" onclick="renderWerkbladPreview(werkbladCtx.source, werkbladCtx.srcId, werkbladCtx.backAction)">← Terug naar het werkblad</button>
       <button class="nextbtn" onclick="window.print()">🖨️ Print correctiesleutel</button>
     </div>
     <div class="werkblad">
       <div class="werkblad-pagina">
-        <h1>🔑 Correctiesleutel — ${escHtml(d.titel)} ${d.level}</h1>
+        <h1>🔑 Correctiesleutel — ${escHtml(d.titel)}</h1>
         <h2>Enkel voor de leerkracht — niet uitdelen aan leerlingen.</h2>
-        <ol class="oefeningen">${rows}</ol>
+
+        ${html}
       </div>
     </div>`;
 }
@@ -665,20 +708,19 @@ function renderAIReeksNiveau(id){
   const t = WERKWOORDEN_DATA[item.tense] || {color:'#0891b2', title:'AI-oefening'};
   const order = {'*':1,'**':2,'***':3};
   const countFor = capLevel => item.exercises.filter(ex=>order[ex.level||'*']<=order[capLevel]).length;
-  const printBtn = lvl => state.teacherMode ? `<button class="renamebtn" onclick="event.stopPropagation();renderWerkbladPreview('ai',${id},'${lvl}',\`renderAIReeksNiveau(${id})\`)">🖨️ Werkblad</button>` : '';
   root.innerHTML = `
     <button class="backbtn" onclick="renderTopic('${item.tense}')">← Terug</button>
-    <h2>✨ ${item.naam}</h2>
+    <h2>✨ ${item.naam} ${state.teacherMode ? `<button class="iconbtn" onclick="renderWerkbladPreview('ai',${id},\`renderAIReeksNiveau(${id})\`)">🖨️ Werkblad (★+★★+★★★)</button>` : ''}</h2>
     <p>Kies je niveau. Hoe meer sterren, hoe meer zinnen je maakt.</p>
     <div class="niveau-grid">
       <div class="niveau-card" style="border-color:${t.color}" onclick="startAIRunFromSaved(${id},'*')">
-        <b>★</b><p>${countFor('*')} zinnen</p>${printBtn('*')}
+        <b>★</b><p>${countFor('*')} zinnen</p>
       </div>
       <div class="niveau-card" style="border-color:${t.color}" onclick="startAIRunFromSaved(${id},'**')">
-        <b>★★</b><p>${countFor('**')} zinnen</p>${printBtn('**')}
+        <b>★★</b><p>${countFor('**')} zinnen</p>
       </div>
       <div class="niveau-card" style="border-color:${t.color}" onclick="startAIRunFromSaved(${id},'***')">
-        <b>★★★</b><p>${countFor('***')} zinnen</p>${printBtn('***')}
+        <b>★★★</b><p>${countFor('***')} zinnen</p>
       </div>
     </div>`;
 }
@@ -1036,20 +1078,19 @@ function renderTopic(key){
 /* ---------- niveau keuze ---------- */
 function renderNiveau(key, setNum){
   const t = WERKWOORDEN_DATA[key];
-  const printBtn = lvl => state.teacherMode ? `<button class="renamebtn" onclick="event.stopPropagation();renderWerkbladPreview('reeks',{key:'${key}',setNum:'${setNum}'},'${lvl}',\`renderNiveau('${key}','${setNum}')\`)">🖨️ Werkblad</button>` : '';
   root.innerHTML = `
     <button class="backbtn" onclick="renderTopic('${key}')">← Terug</button>
-    <h2>${t.title} — ${reeksNaam(key,setNum)} ${state.teacherMode ? `<button class="iconbtn" onclick="openReeksEditor('${key}','${setNum}')">🛠️ Oefeningen bewerken</button>` : ''}</h2>
+    <h2>${t.title} — ${reeksNaam(key,setNum)} ${state.teacherMode ? `<button class="iconbtn" onclick="openReeksEditor('${key}','${setNum}')">🛠️ Oefeningen bewerken</button> <button class="iconbtn" onclick="renderWerkbladPreview('reeks',{key:'${key}',setNum:'${setNum}'},\`renderNiveau('${key}','${setNum}')\`)">🖨️ Werkblad (★+★★+★★★)</button>` : ''}</h2>
     <p>Kies je niveau. Hoe meer sterren, hoe meer opdrachten je maakt.</p>
     <div class="niveau-grid">
       <div class="niveau-card" style="border-color:${t.color}" onclick="startRun('${key}','${setNum}','*')">
-        <b>★</b><p>Basisoefeningen<br>(verkennen + herkennen + invullen, niveau *)</p>${printBtn('*')}
+        <b>★</b><p>Basisoefeningen<br>(verkennen + herkennen + invullen, niveau *)</p>
       </div>
       <div class="niveau-card" style="border-color:${t.color}" onclick="startRun('${key}','${setNum}','**')">
-        <b>★★</b><p>Ook de uitbreiding<br>(+ niveau ** oefeningen)</p>${printBtn('**')}
+        <b>★★</b><p>Ook de uitbreiding<br>(+ niveau ** oefeningen)</p>
       </div>
       <div class="niveau-card" style="border-color:${t.color}" onclick="startRun('${key}','${setNum}','***')">
-        <b>★★★</b><p>Alle opdrachten<br>(+ niveau *** en zelf schrijven)</p>${printBtn('***')}
+        <b>★★★</b><p>Alle opdrachten<br>(+ niveau *** en zelf schrijven)</p>
       </div>
     </div>`;
 }
@@ -1959,20 +2000,19 @@ async function renderHandboekNiveau(code){
     }
     return parts.join(' + ') || 'oefeningen';
   };
-  const printBtn = lvl => state.teacherMode ? `<button class="renamebtn" onclick="event.stopPropagation();renderWerkbladPreview('handboek','${code}','${lvl}',\`renderHandboekNiveau('${code}')\`)">🖨️ Werkblad</button>` : '';
   root.innerHTML = `
     <button class="backbtn" onclick="${t.backAction}">← Terug</button>
-    <h2>${t.title} — ${reeksNaam('hb_'+code,'1')} ${state.teacherMode ? `<button class="renamebtn" onclick="hernoemReeks('hb_${code}','1')">✏️</button> <button class="iconbtn" onclick="openHandboekEditor('${code}')">🛠️ Oefeningen bewerken</button>` : ''}</h2>
+    <h2>${t.title} — ${reeksNaam('hb_'+code,'1')} ${state.teacherMode ? `<button class="renamebtn" onclick="hernoemReeks('hb_${code}','1')">✏️</button> <button class="iconbtn" onclick="openHandboekEditor('${code}')">🛠️ Oefeningen bewerken</button> <button class="iconbtn" onclick="renderWerkbladPreview('handboek','${code}',\`renderHandboekNiveau('${code}')\`)">🖨️ Werkblad (★+★★+★★★)</button>` : ''}</h2>
     <p>Kies je niveau. Hoe meer sterren, hoe meer opdrachten je maakt.</p>
     <div class="niveau-grid">
       <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','*')">
-        <b>★</b><p>${desc('*')}</p>${printBtn('*')}
+        <b>★</b><p>${desc('*')}</p>
       </div>
       <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','**')">
-        <b>★★</b><p>${desc('**')}</p>${printBtn('**')}
+        <b>★★</b><p>${desc('**')}</p>
       </div>
       <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','***')">
-        <b>★★★</b><p>${desc('***')}</p>${printBtn('***')}
+        <b>★★★</b><p>${desc('***')}</p>
       </div>
     </div>`;
 }

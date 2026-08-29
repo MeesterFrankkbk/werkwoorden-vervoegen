@@ -581,15 +581,15 @@ function buildSequence(key, setNum, maxLevel){
   seq.push({type:'info', text:`Welkom bij ${t.title}. Deze oefeningen komen ook terug op het contractwerk, met *, ** of ***.`});
   seq.push({type:'schema', img:t.schema, title:t.title});
   s.explore.forEach(ex=> seq.push({type:'explore', data:ex}));
-  s.identify.filter(it=>order[it.level]<=cap).forEach(it=> seq.push({type:'identify', data:it}));
-  s.fillin.filter(it=>order[it.level]<=cap).forEach(it=> seq.push({type:'fillin', data:it}));
+  shuffle(s.identify.filter(it=>order[it.level]<=cap)).forEach(it=> seq.push({type:'identify', data:it}));
+  shuffle(s.fillin.filter(it=>order[it.level]<=cap)).forEach(it=> seq.push({type:'fillin', data:it}));
   if(cap===1){
     // ook op het meest eenvoudige niveau al 5 typ-oefeningen (dictee), zodat elke leerling écht typt
     shuffle(buildTopicDicteePool(t)).slice(0,5).forEach(it=> seq.push({type:'dictee', data:it}));
   } else if(cap===2){
     shuffle(buildTopicDicteePool(t)).forEach(it=> seq.push({type:'dictee', data:it})); // alle 8 beschikbare (reeks 1+2 samen)
   } else if(cap>=3){
-    s.written.forEach(it=> seq.push({type:'written', data:it}));
+    shuffle([...s.written]).forEach(it=> seq.push({type:'written', data:it}));
   }
   seq.push({type:'match', data:buildMatchPairs(s)});
   seq.push({type:'end'});
@@ -735,6 +735,14 @@ function revealExplore(el, group){
 /* identify (multiple choice) */
 function renderIdentify(data){
   run.total++;
+  if(!data._shuffled){
+    const oldCorrect = data.correctIndex;
+    const idxs = data.options.map((_,i)=>i);
+    shuffle(idxs);
+    data.options = idxs.map(i=>data.options[i]);
+    data.correctIndex = idxs.indexOf(oldCorrect);
+    data._shuffled = true;
+  }
   const opts = data.options.map((o,idx)=>`<button class="opt" onclick="checkIdentify(this,${idx})">${o}</button>`).join('');
   setTimeout(()=>speakBlankPrompt(data.prompt),50);
   return `<span class="level-badge" style="background:${levelColors[data.level]};color:${levelText[data.level]}">${data.level}</span>
@@ -768,6 +776,10 @@ function checkIdentify(el, idx){
 /* fillin (choose among options in sentence) */
 function renderFillin(data){
   run.total++;
+  if(!data._shuffled){
+    data.options = shuffle([...data.options]);
+    data._shuffled = true;
+  }
   const opts = data.options.map((o,idx)=>`<button class="opt" onclick="checkFillin(this,${idx})">${o}</button>`).join('');
   const sentence = `${data.prefix} <b>___</b> ${data.suffix}`;
   setTimeout(()=>speakBlankAware(data.prefix, data.suffix),50);
@@ -1056,13 +1068,13 @@ function startHandboekRun(code, level){
   const seq = [];
   seq.push({type:'info', text:`Welkom bij ${reeksNaam('hb_'+code,'1')}.`});
   if(lesData.brontekst) seq.push({type:'brontekst', data:lesData.brontekst});
-  (lesData.stam||[]).forEach(it=> seq.push({type:'stam', data:it}));
-  (lesData.identify||[]).filter(it=>order[it.level]<=cap).forEach(it=> seq.push({type:'identify', data:it}));
-  (lesData.persoonsvorm||[]).filter(it=>order[it.level||'*']<=cap).forEach(it=> seq.push({type:'written', data:it}));
+  shuffle([...(lesData.stam||[])]).forEach(it=> seq.push({type:'stam', data:it}));
+  shuffle((lesData.identify||[]).filter(it=>order[it.level]<=cap)).forEach(it=> seq.push({type:'identify', data:it}));
+  shuffle((lesData.persoonsvorm||[]).filter(it=>order[it.level||'*']<=cap)).forEach(it=> seq.push({type:'written', data:it}));
   if(lesData.stam && lesData.stam.length>=3) seq.push({type:'match', data: lesData.stam.map(it=>({subject:it.infinitief, form:it.antwoord}))});
-  (lesData.fillin||[]).filter(it=>order[it.level||'**']<=cap).forEach(it=> seq.push({type:'fillin', data:{...it, level: it.level||'**'}}));
-  if(cap>=2) (lesData.zinvt||[]).forEach(it=> seq.push({type:'zinvt', data:it}));
-  if(cap>=3) (lesData.vrijezin||[]).forEach(it=> seq.push({type:'vrijezin', data:it}));
+  shuffle((lesData.fillin||[]).filter(it=>order[it.level||'**']<=cap)).forEach(it=> seq.push({type:'fillin', data:{...it, level: it.level||'**'}}));
+  if(cap>=2) shuffle([...(lesData.zinvt||[])]).forEach(it=> seq.push({type:'zinvt', data:it}));
+  if(cap>=3) shuffle([...(lesData.vrijezin||[])]).forEach(it=> seq.push({type:'vrijezin', data:it}));
   if(cap>=3 && lesData.vrijetekst) seq.push({type:'vrijetekst', data:lesData.vrijetekst});
   seq.push({type:'end'});
   run = { key:lesData.tense, setNum:'hb_'+code, level, seq, i:0, correct:0, total:0, wrong:[], good:[],

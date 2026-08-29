@@ -277,7 +277,7 @@ function renderAIGenerator(){
         </div>
         <div>
           <label>Aantal</label><br>
-          <input type="number" id="aiCount" value="8" min="1" max="20" style="width:70px;padding:.5rem;border:2px solid var(--line);border-radius:8px;font-family:inherit">
+          <input type="number" id="aiCount" value="8" min="1" max="25" style="width:70px;padding:.5rem;border:2px solid var(--line);border-radius:8px;font-family:inherit">
         </div>
       </div>
       <button class="bigbtn" style="margin-top:1rem;width:auto;padding:.7rem 1.4rem" onclick="generateAIExercises()">✨ Genereer</button>

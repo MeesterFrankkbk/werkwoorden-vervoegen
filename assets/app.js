@@ -1011,4 +1011,913 @@ function renderReport(){
 function reportText(){
   const pct = run.total ? Math.round(run.correct/run.total*100) : 100;
   const st = state.student || {voornaam:'', naam:'', klas:'', klasnummer:''};
-  const datum = new Date(
+  const datum = new Date().toLocaleDateString('nl-BE');
+  const reeksLabel = (run.key==='allin' || String(run.setNum).startsWith('hb_')) ? '' : ` (${reeksNaam(run.key, run.setNum)}, niveau ${run.level})`;
+  let txt = `Rapport werkwoorden - ${run.title}${reeksLabel}\n`;
+  txt += `${st.voornaam} ${st.naam} - klas ${st.klas}, nr. ${st.klasnummer} - ${datum}\n`;
+  txt += `Score: ${run.correct} / ${run.total} (${pct}%)\n`;
+  if(run.bestStreak >= 3) txt += `Langste reeks juiste antwoorden na elkaar: ${run.bestStreak}\n`;
+  txt += '\n';
+  if(run.good.length){ txt += 'Dit lukt goed:\n'; [...new Set(run.good)].slice(0,6).forEach(x=>txt+=' - '+x+'\n'); txt+='\n'; }
+  if(run.wrong.length){ txt += 'Kan nog oefenen op:\n'; run.wrong.forEach(w=>txt+=` - ${w.vraag} -> ${w.juist}\n`); }
+  else txt += 'Alles was in orde!\n';
+  return txt;
+}
+function emailReport(){
+  const subject = encodeURIComponent('Rapport werkwoorden - ' + (state.student?state.student.voornaam+' '+state.student.naam:''));
+  const body = encodeURIComponent(reportText());
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+}
+function saveReport(){
+  const blob = new Blob([reportText()], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const naam = state.student ? (state.student.voornaam+'-'+state.student.naam) : 'leerling';
+  a.download = `rapport-werkwoorden-${naam}.txt`;
+  a.click();
+}
+
+/* ---------- all-in classificatie ---------- */
+async function buildAllInPool(){
+  const pool = [];
+  const stripLead = (t)=> (t||'').replace(/^\d+\)\s*/, '').replace(/^\([^)]+\)\s*/, '').trim();
+  for(const key of Object.keys(WERKWOORDEN_DATA)){
+    for(const setNum of Object.keys(WERKWOORDEN_DATA[key].sets)){
+      const s = await getSet(key, setNum);
+      s.fillin.forEach(it=>{
+        const prefixClean = stripLead(it.prefix);
+        const html = `${prefixClean} <u>${it.answer}</u> ${it.suffix}`.replace(/\s+/g,' ').trim();
+        const text = `${prefixClean} ${it.answer} ${it.suffix}`.replace(/\s+/g,' ').trim();
+        pool.push({ html, text, label: key, level: it.level });
+      });
+      s.written.forEach(it=>{
+        const cleanPrompt = stripLead(it.prompt);
+        const html = cleanPrompt.replace('...', `<u>${it.answer}</u>`);
+        const text = cleanPrompt.replace('...', it.answer);
+        pool.push({ html, text, label: key, level:'***' });
+      });
+    }
+  }
+  return pool;
+}
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+
+/* Bouwt de All-in vragenlijst per niveau, naar analogie met de andere reeksen:
+   * = 15 vragen (niveau *), ** = +5 vragen (niveau **, dus 20 in totaal),
+   *** = +5 vragen (niveau ***, dus 25 in totaal). */
+async function buildAllInSet(maxLevel){
+  const pool = await buildAllInPool();
+  const byLevel = {'*':[], '**':[], '***':[]};
+  pool.forEach(p=> byLevel[p.level] && byLevel[p.level].push(p));
+  const picked = shuffle(byLevel['*']).slice(0,15);
+  if(maxLevel==='**' || maxLevel==='***') picked.push(...shuffle(byLevel['**']).slice(0,5));
+  if(maxLevel==='***') picked.push(...shuffle(byLevel['***']).slice(0,5));
+  return picked;
+}
+
+/* Dictee-blok: 5 zinnen per niveau extra (cumulatief), telkens getypt i.p.v. herkend.
+   Gebruikt dezelfde bron als de "Zelf schrijven"-oefening (infinitief + te typen vorm),
+   over alle onderdelen (tt/vt/geenpv) heen gemengd. */
+async function buildDicteePool(){
+  const pool = [];
+  for(const key of Object.keys(WERKWOORDEN_DATA)){
+    for(const setNum of Object.keys(WERKWOORDEN_DATA[key].sets)){
+      const s = await getSet(key, setNum);
+      s.written.forEach(it=> pool.push({ prompt: it.prompt, answer: it.answer }));
+    }
+  }
+  return pool;
+}
+async function buildDicteeSet(maxLevel){
+  const n = maxLevel==='***' ? 15 : maxLevel==='**' ? 10 : 5;
+  return shuffle(await buildDicteePool()).slice(0, n);
+}
+
+/* ========== Handboeklessen (TK-bestanden) ========== */
+/* Geeft titel/kleur/terugknop voor een tense-waarde, inclusief het speciale geval "allin"
+   (dat geen eigen ingang heeft in WERKWOORDEN_DATA, in tegenstelling tot tt/vt/geenpv). */
+function getTenseInfo(tense){
+  if(tense === 'allin'){
+    return { title: reeksNaam('allin','1'), color:'#7c3aed', backAction:`renderAllInNiveau()` };
+  }
+  const t = WERKWOORDEN_DATA[tense];
+  return { title: t.title, color: t.color, backAction:`renderTopic('${tense}')` };
+}
+/* ---------- leerkracht: inhoud van reeksen bewerken (handboek én de gewone reeksen) ----------
+   Aanpassingen worden per reeks als volledige (overschreven) kopie opgeslagen in de
+   gedeelde opslag, los van de oorspronkelijke HANDBOEK_DATA / WERKWOORDEN_DATA. Zo
+   blijft het originele materiaal steeds intact en kan de leerkracht op elk moment
+   terug naar de oorspronkelijke inhoud — en zien alle leerlingen, op elk toestel,
+   automatisch dezelfde (eventueel aangepaste) versie. */
+async function getLesData(code){
+  await ensureOverrides();
+  return sharedOverrides['hb_'+code] || HANDBOEK_DATA[code];
+}
+function hasLesDataOverride(code){
+  return !!(sharedOverrides && sharedOverrides['hb_'+code]);
+}
+async function saveLesDataOverride(code, data){
+  await saveOverride('hb_'+code, data);
+}
+async function resetLesDataOverride(code){
+  if(!confirm('Alle eigen aanpassingen aan deze reeks ongedaan maken en terugkeren naar de oorspronkelijke handboekinhoud?')) return;
+  try{
+    await deleteOverride('hb_'+code);
+  }catch(e){
+    alert('Kon niet terugzetten: ' + e.message);
+    return;
+  }
+  openHandboekEditor(code);
+}
+
+/* Zelfde principe, maar dan voor de gewone tt/vt/geenpv-reeksen (WERKWOORDEN_DATA). */
+async function getSet(key, setNum){
+  await ensureOverrides();
+  return sharedOverrides['wd_'+key+'_'+setNum] || WERKWOORDEN_DATA[key].sets[setNum];
+}
+function hasSetOverride(key, setNum){
+  return !!(sharedOverrides && sharedOverrides['wd_'+key+'_'+setNum]);
+}
+async function saveSetOverride(key, setNum, data){
+  await saveOverride('wd_'+key+'_'+setNum, data);
+}
+async function resetSetOverride(key, setNum){
+  if(!confirm('Alle eigen aanpassingen aan deze reeks ongedaan maken en terugkeren naar de oorspronkelijke inhoud?')) return;
+  try{
+    await deleteOverride('wd_'+key+'_'+setNum);
+  }catch(e){
+    alert('Kon niet terugzetten: ' + e.message);
+    return;
+  }
+  openReeksEditor(key, setNum);
+}
+
+let editorState = null;
+let editorCode = null;
+
+async function openHandboekEditor(code){
+  if(!state.teacherMode) return;
+  stopSpeech();
+  editorCode = code;
+  editorState = JSON.parse(JSON.stringify(await getLesData(code))); // losse werkkopie
+  renderHandboekEditor();
+}
+/* Leest alles wat nu in de invulvelden staat terug in editorState, zodat
+   een druk op "toevoegen" of "verwijderen" (die het scherm herbouwen)
+   nooit nog niet-opgeslagen tekst laat verdwijnen. */
+function syncEditorFromDOM(){
+  const val = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  (editorState.persoonsvorm||[]).forEach((it,i)=>{
+    it.prompt = val('pv_'+i+'_prompt'); it.answer = val('pv_'+i+'_answer'); it.level = val('pv_'+i+'_level');
+  });
+  (editorState.fillin||[]).forEach((it,i)=>{
+    it.prefix = val('fi_'+i+'_prefix'); it.suffix = val('fi_'+i+'_suffix'); it.answer = val('fi_'+i+'_answer'); it.level = val('fi_'+i+'_level');
+    it.options = val('fi_'+i+'_options').split(',').map(s=>s.trim()).filter(Boolean);
+  });
+  (editorState.identify||[]).forEach((it,i)=>{
+    it.prompt = val('id_'+i+'_prompt'); it.level = val('id_'+i+'_level'); it.extraInfo = val('id_'+i+'_extra');
+    it.options = val('id_'+i+'_options').split(',').map(s=>s.trim()).filter(Boolean);
+    it.correctIndex = parseInt(val('id_'+i+'_correct'),10) || 0;
+  });
+  (editorState.zinvt||[]).forEach((it,i)=>{
+    it.zin = val('zv_'+i+'_zin'); it.antwoord = val('zv_'+i+'_antwoord');
+  });
+  if(editorState.zinvt && editorState.zinvt.length){
+    editorState.zinvtLabel = val('zv_label');
+    editorState.zinvtLevel = val('zv_level');
+  }
+  (editorState.stam||[]).forEach((it,i)=>{
+    it.infinitief = val('st_'+i+'_inf'); it.antwoord = val('st_'+i+'_ant');
+  });
+  (editorState.vrijezin||[]).forEach((it,i)=>{
+    it.infinitief = val('vz_'+i+'_inf');
+  });
+  const vt = Array.isArray(editorState.vrijetekst) ? editorState.vrijetekst : (editorState.vrijetekst ? [editorState.vrijetekst] : []);
+  vt.forEach((it,i)=>{
+    it.opdracht = val('vt_'+i+'_opdracht'); it.level = val('vt_'+i+'_level');
+  });
+  editorState.vrijetekst = vt;
+  if(editorState.brontekst){
+    editorState.brontekst.titel = val('bt_titel');
+    editorState.brontekst.tekst = val('bt_tekst');
+    editorState.brontekst.opdracht = val('bt_opdracht');
+    const targetsRaw = val('bt_targets');
+    if(targetsRaw !== '') editorState.brontekst.targets = targetsRaw.split(',').map(s=>s.trim()).filter(Boolean);
+  }
+}
+function editorAdd(field){
+  syncEditorFromDOM();
+  if(!editorState[field]) editorState[field] = [];
+  const blanks = {
+    persoonsvorm: {prompt:"(werkwoord) ...", answer:"", level:"*"},
+    fillin: {level:"*", prefix:"", suffix:"", answer:"", options:["","",""]},
+    identify: {level:"*", prompt:"", options:["",""], correctIndex:0, extraInfo:""},
+    zinvt: {zin:"", antwoord:""},
+    stam: {infinitief:"", antwoord:""},
+    vrijezin: {infinitief:""},
+    vrijetekst: {opdracht:"", level:"***"},
+  };
+  editorState[field].push(JSON.parse(JSON.stringify(blanks[field])));
+  renderHandboekEditor();
+}
+function editorRemove(field, i){
+  syncEditorFromDOM();
+  editorState[field].splice(i,1);
+  renderHandboekEditor();
+}
+async function editorSave(){
+  syncEditorFromDOM();
+  const btn = document.getElementById('editorSaveBtn');
+  if(btn){ btn.disabled = true; btn.textContent = '💾 Bezig met opslaan...'; }
+  try{
+    await saveLesDataOverride(editorCode, editorState);
+    alert('Wijzigingen opgeslagen! Alle leerlingen krijgen vanaf nu deze aangepaste versie te zien.');
+  }catch(e){
+    alert('Opslaan is mislukt: ' + e.message);
+  }
+  renderHandboekEditor();
+}
+function editorClose(){
+  editorState = null;
+  const code = editorCode; editorCode = null;
+  renderHandboekNiveau(code);
+}
+function renderHandboekEditor(){
+  const d = editorState;
+  const lvlSel = (id, current) => `<select id="${id}">${['*','**','***'].map(l=>`<option value="${l}" ${l===current?'selected':''}>${l}</option>`).join('')}</select>`;
+  let html = `<button class="backbtn" onclick="editorClose()">← Terug zonder verder te bewerken</button>
+    <h2>🛠️ Oefeningen bewerken — ${d.titel||editorCode}</h2>
+    <p style="color:#666">Pas hieronder de inhoud aan. Vergeet niet op <b>Wijzigingen opslaan</b> te klikken. ${hasLesDataOverride(editorCode) ? `<button class="iconbtn" onclick="resetLesDataOverride('${editorCode}')">↩️ Terug naar oorspronkelijke handboektekst</button>` : ''}</p>`;
+
+  if(d.brontekst){
+    html += `<h3>📖 Brontekst</h3>
+      <label>Titel<br><input id="bt_titel" value="${escAttr(d.brontekst.titel)}" style="width:100%"></label><br>
+      <label>Tekst<br><textarea id="bt_tekst" rows="4" style="width:100%">${escHtml(d.brontekst.tekst)}</textarea></label><br>
+      <label>Opdracht (bv. "Klik op alle persoonsvormen in de tegenwoordige tijd.")<br><input id="bt_opdracht" value="${escAttr(d.brontekst.opdracht||'')}" style="width:100%"></label><br>
+      <label>Woorden om aan te klikken (komma-gescheiden, mag een woord dubbel bevatten)<br><input id="bt_targets" value="${escAttr((d.brontekst.targets||[]).join(', '))}" style="width:100%"></label>`;
+  }
+
+  if(d.stam){
+    html += `<h3>🌱 Stam (niveau *)</h3>`;
+    d.stam.forEach((it,i)=>{
+      html += `<div class="editor-row"><input id="st_${i}_inf" placeholder="infinitief" value="${escAttr(it.infinitief)}"> → <input id="st_${i}_ant" placeholder="stam" value="${escAttr(it.antwoord)}"> <button class="iconbtn" onclick="editorRemove('stam',${i})">🗑️</button></div>`;
+    });
+    html += `<button class="iconbtn" onclick="editorAdd('stam')">+ Werkwoord toevoegen</button>`;
+  }
+
+  if(d.identify){
+    html += `<h3>🔍 Herkennen (identify)</h3>`;
+    d.identify.forEach((it,i)=>{
+      html += `<div class="editor-row" style="border-bottom:1px solid #eee;padding:.4rem 0">
+        Niveau ${lvlSel('id_'+i+'_level', it.level)}<br>
+        <input id="id_${i}_prompt" placeholder="vraag / woord" value="${escAttr(it.prompt)}" style="width:100%"><br>
+        Opties (komma-gescheiden): <input id="id_${i}_options" value="${escAttr((it.options||[]).join(', '))}" style="width:100%"><br>
+        Index juist antwoord (0=eerste optie, 1=tweede, ...): <input id="id_${i}_correct" type="number" min="0" value="${it.correctIndex}" style="width:4rem"><br>
+        Extra uitleg (optioneel): <input id="id_${i}_extra" value="${escAttr(it.extraInfo||'')}" style="width:100%">
+        <button class="iconbtn" onclick="editorRemove('identify',${i})">🗑️ Verwijderen</button>
+      </div>`;
+    });
+    html += `<button class="iconbtn" onclick="editorAdd('identify')">+ Vraag toevoegen</button>`;
+  }
+
+  if(d.persoonsvorm){
+    html += `<h3>✍️ Schrijf de juiste vorm (persoonsvorm)</h3>`;
+    d.persoonsvorm.forEach((it,i)=>{
+      html += `<div class="editor-row" style="border-bottom:1px solid #eee;padding:.4rem 0">
+        Niveau ${lvlSel('pv_'+i+'_level', it.level||'*')}
+        <input id="pv_${i}_prompt" placeholder="(werkwoord, tijd) Zin met ..." value="${escAttr(it.prompt)}" style="width:100%;margin-top:.3rem">
+        Antwoord: <input id="pv_${i}_answer" value="${escAttr(it.answer)}">
+        <button class="iconbtn" onclick="editorRemove('persoonsvorm',${i})">🗑️</button>
+      </div>`;
+    });
+    html += `<button class="iconbtn" onclick="editorAdd('persoonsvorm')">+ Vraag toevoegen</button>`;
+  }
+
+  if(d.fillin){
+    html += `<h3>☑️ Kies de juiste vorm (fillin)</h3>`;
+    d.fillin.forEach((it,i)=>{
+      html += `<div class="editor-row" style="border-bottom:1px solid #eee;padding:.4rem 0">
+        Niveau ${lvlSel('fi_'+i+'_level', it.level||'*')}<br>
+        Voor de leemte: <input id="fi_${i}_prefix" value="${escAttr(it.prefix)}"> ... Na de leemte: <input id="fi_${i}_suffix" value="${escAttr(it.suffix)}"><br>
+        Juist antwoord: <input id="fi_${i}_answer" value="${escAttr(it.answer)}"><br>
+        Alle keuzemogelijkheden (komma-gescheiden, moet het juiste antwoord bevatten): <input id="fi_${i}_options" value="${escAttr((it.options||[]).join(', '))}" style="width:100%">
+        <button class="iconbtn" onclick="editorRemove('fillin',${i})">🗑️ Verwijderen</button>
+      </div>`;
+    });
+    html += `<button class="iconbtn" onclick="editorAdd('fillin')">+ Vraag toevoegen</button>`;
+  }
+
+  if(d.zinvt && d.zinvt.length){
+    html += `<h3>🔁 Hele zin herschrijven (zinvt)</h3>
+      Niveau vanaf wanneer dit onderdeel meedoet: ${lvlSel('zv_level', d.zinvtLevel||'**')}<br>
+      Instructie boven de zinnen: <input id="zv_label" value="${escAttr(d.zinvtLabel||'')}" style="width:100%"><br>`;
+    d.zinvt.forEach((it,i)=>{
+      html += `<div class="editor-row" style="border-bottom:1px solid #eee;padding:.4rem 0">
+        Zin: <input id="zv_${i}_zin" value="${escAttr(it.zin)}" style="width:100%">
+        Antwoord: <input id="zv_${i}_antwoord" value="${escAttr(it.antwoord)}" style="width:100%">
+        <button class="iconbtn" onclick="editorRemove('zinvt',${i})">🗑️</button>
+      </div>`;
+    });
+    html += `<button class="iconbtn" onclick="editorAdd('zinvt')">+ Zin toevoegen</button>`;
+  }
+
+  if(d.vrijezin){
+    html += `<h3>📝 Zelf een zin schrijven (vrijezin)</h3>`;
+    d.vrijezin.forEach((it,i)=>{
+      html += `<div class="editor-row"><input id="vz_${i}_inf" placeholder="infinitief" value="${escAttr(it.infinitief)}"> <button class="iconbtn" onclick="editorRemove('vrijezin',${i})">🗑️</button></div>`;
+    });
+    html += `<button class="iconbtn" onclick="editorAdd('vrijezin')">+ Werkwoord toevoegen</button>`;
+  }
+
+  const vt = Array.isArray(d.vrijetekst) ? d.vrijetekst : (d.vrijetekst ? [d.vrijetekst] : []);
+  if(vt.length){
+    html += `<h3>🤖 AI-gecontroleerde schrijfopdracht (vrijetekst)</h3>`;
+    vt.forEach((it,i)=>{
+      html += `<div class="editor-row" style="border-bottom:1px solid #eee;padding:.4rem 0">
+        Niveau ${lvlSel('vt_'+i+'_level', it.level||'***')}<br>
+        Opdracht: <textarea id="vt_${i}_opdracht" rows="2" style="width:100%">${escHtml(it.opdracht)}</textarea>
+        <button class="iconbtn" onclick="editorRemove('vrijetekst',${i})">🗑️ Verwijderen</button>
+      </div>`;
+    });
+    html += `<button class="iconbtn" onclick="editorAdd('vrijetekst')">+ Opdracht toevoegen</button>`;
+  }
+
+  html += `<div style="margin-top:1.5rem;display:flex;gap:.6rem">
+      <button id="editorSaveBtn" class="nextbtn" onclick="editorSave()">💾 Wijzigingen opslaan</button>
+      <button class="iconbtn" onclick="editorClose()">Sluiten</button>
+    </div>`;
+  root.innerHTML = html;
+}
+function escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+
+/* ---------- leerkracht: inhoud van de gewone reeksen (tt/vt/geenpv) bewerken ----------
+   Zelfde principe als de handboekeditor hierboven, maar dan voor de "explore"
+   (verkennen), "identify", "fillin" en "written" onderdelen van WERKWOORDEN_DATA.
+   Het "memory"-veld (indien aanwezig) wordt gewoon meegekopieerd, maar heeft
+   momenteel geen eigen scherm in de app en is dus ook niet bewerkbaar hier. */
+let reeksEditorState = null;
+let reeksEditorKey = null;
+let reeksEditorSetNum = null;
+
+async function openReeksEditor(key, setNum){
+  if(!state.teacherMode) return;
+  stopSpeech();
+  reeksEditorKey = key;
+  reeksEditorSetNum = setNum;
+  reeksEditorState = JSON.parse(JSON.stringify(await getSet(key, setNum)));
+  renderReeksEditor();
+}
+function syncReeksEditorFromDOM(){
+  const val = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  (reeksEditorState.explore||[]).forEach((ex,i)=>{
+    ex.verb = val('ex_'+i+'_verb');
+    ex.forms = [0,1,2].map(g=> val('ex_'+i+'_form'+g));
+    (ex.subjects||[]).forEach((sub,j)=>{
+      sub.text = val('ex_'+i+'_sub'+j+'_text');
+      sub.group = parseInt(val('ex_'+i+'_sub'+j+'_group'),10) || 0;
+    });
+  });
+  (reeksEditorState.identify||[]).forEach((it,i)=>{
+    it.prompt = val('rid_'+i+'_prompt'); it.level = val('rid_'+i+'_level');
+    it.options = val('rid_'+i+'_options').split(',').map(s=>s.trim()).filter(Boolean);
+    it.correctIndex = parseInt(val('rid_'+i+'_correct'),10) || 0;
+  });
+  (reeksEditorState.fillin||[]).forEach((it,i)=>{
+    it.prefix = val('rfi_'+i+'_prefix'); it.suffix = val('rfi_'+i+'_suffix'); it.answer = val('rfi_'+i+'_answer'); it.level = val('rfi_'+i+'_level');
+    it.options = val('rfi_'+i+'_options').split(',').map(s=>s.trim()).filter(Boolean);
+  });
+  (reeksEditorState.written||[]).forEach((it,i)=>{
+    it.prompt = val('rwr_'+i+'_prompt'); it.answer = val('rwr_'+i+'_answer');
+  });
+}
+function reeksEditorAdd(field){
+  syncReeksEditorFromDOM();
+  if(!reeksEditorState[field]) reeksEditorState[field] = [];
+  const blanks = {
+    explore: {verb:"", subjects:[{group:0,text:"Ik ..."},{group:1,text:"Jij ..."},{group:2,text:"Wij ..."}], forms:["","",""]},
+    identify: {level:"*", prompt:"Vul de zin aan: ...", options:["","",""], correctIndex:0},
+    fillin: {level:"*", prefix:"", suffix:"", answer:"", options:["","",""]},
+    written: {prompt:"(werkwoord) ...", answer:""},
+  };
+  reeksEditorState[field].push(JSON.parse(JSON.stringify(blanks[field])));
+  renderReeksEditor();
+}
+function reeksEditorRemove(field, i){
+  syncReeksEditorFromDOM();
+  reeksEditorState[field].splice(i,1);
+  renderReeksEditor();
+}
+function reeksEditorAddSubject(exI){
+  syncReeksEditorFromDOM();
+  reeksEditorState.explore[exI].subjects.push({group:0, text:"... ?"});
+  renderReeksEditor();
+}
+function reeksEditorRemoveSubject(exI, subJ){
+  syncReeksEditorFromDOM();
+  reeksEditorState.explore[exI].subjects.splice(subJ,1);
+  renderReeksEditor();
+}
+async function reeksEditorSave(){
+  syncReeksEditorFromDOM();
+  const btn = document.getElementById('reeksEditorSaveBtn');
+  if(btn){ btn.disabled = true; btn.textContent = '💾 Bezig met opslaan...'; }
+  try{
+    await saveSetOverride(reeksEditorKey, reeksEditorSetNum, reeksEditorState);
+    alert('Wijzigingen opgeslagen! Alle leerlingen krijgen vanaf nu deze aangepaste versie te zien.');
+  }catch(e){
+    alert('Opslaan is mislukt: ' + e.message);
+  }
+  renderReeksEditor();
+}
+function reeksEditorClose(){
+  reeksEditorState = null;
+  const key = reeksEditorKey, setNum = reeksEditorSetNum;
+  reeksEditorKey = null; reeksEditorSetNum = null;
+  renderNiveau(key, setNum);
+}
+function renderReeksEditor(){
+  const d = reeksEditorState;
+  const t = WERKWOORDEN_DATA[reeksEditorKey];
+  const lvlSel = (id, current) => `<select id="${id}">${['*','**','***'].map(l=>`<option value="${l}" ${l===current?'selected':''}>${l}</option>`).join('')}</select>`;
+  const groupSel = (id, current) => `<select id="${id}">${[0,1,2].map(g=>`<option value="${g}" ${g===current?'selected':''}>groep ${g}</option>`).join('')}</select>`;
+  let html = `<button class="backbtn" onclick="reeksEditorClose()">← Terug zonder verder te bewerken</button>
+    <h2>🛠️ Oefeningen bewerken — ${t.title} · ${reeksNaam(reeksEditorKey, reeksEditorSetNum)}</h2>
+    <p style="color:#666">Pas hieronder de inhoud aan. Vergeet niet op <b>Wijzigingen opslaan</b> te klikken. ${hasSetOverride(reeksEditorKey, reeksEditorSetNum) ? `<button class="iconbtn" onclick="resetSetOverride('${reeksEditorKey}','${reeksEditorSetNum}')">↩️ Terug naar oorspronkelijke inhoud</button>` : ''}</p>`;
+
+  html += `<h3>🔎 Verkennen (explore)</h3>
+    <p style="font-size:.85rem;color:#777">Per werkwoord: 3 vormen (groep 0 = ik, groep 1 = jij/hij/het meisje..., groep 2 = wij/jullie/de leerlingen...) en de onderwerpen die bij elke groep horen.</p>`;
+  (d.explore||[]).forEach((ex,i)=>{
+    html += `<div class="editor-row" style="border:1px solid #eee;border-radius:8px;padding:.6rem;margin-bottom:.6rem">
+      Werkwoord: <input id="ex_${i}_verb" value="${escAttr(ex.verb)}">
+      <button class="iconbtn" onclick="editorRemoveExplore(${i})">🗑️ Werkwoord verwijderen</button><br>
+      Vorm groep 0: <input id="ex_${i}_form0" value="${escAttr(ex.forms[0])}">
+      Vorm groep 1: <input id="ex_${i}_form1" value="${escAttr(ex.forms[1])}">
+      Vorm groep 2: <input id="ex_${i}_form2" value="${escAttr(ex.forms[2])}"><br>
+      <b>Onderwerpen:</b><br>`;
+    (ex.subjects||[]).forEach((sub,j)=>{
+      html += `${groupSel('ex_'+i+'_sub'+j+'_group', sub.group)} <input id="ex_${i}_sub${j}_text" value="${escAttr(sub.text)}" placeholder="bv. Jij ..."> <button class="iconbtn" onclick="reeksEditorRemoveSubject(${i},${j})">🗑️</button><br>`;
+    });
+    html += `<button class="iconbtn" onclick="reeksEditorAddSubject(${i})">+ Onderwerp toevoegen</button>
+    </div>`;
+  });
+  html += `<button class="iconbtn" onclick="reeksEditorAdd('explore')">+ Nieuw werkwoord toevoegen</button>`;
+
+  html += `<h3>🔍 Herkennen (identify)</h3>`;
+  (d.identify||[]).forEach((it,i)=>{
+    html += `<div class="editor-row" style="border-bottom:1px solid #eee;padding:.4rem 0">
+      Niveau ${lvlSel('rid_'+i+'_level', it.level)}<br>
+      <input id="rid_${i}_prompt" value="${escAttr(it.prompt)}" style="width:100%"><br>
+      Opties (komma-gescheiden): <input id="rid_${i}_options" value="${escAttr((it.options||[]).join(', '))}" style="width:100%"><br>
+      Index juist antwoord: <input id="rid_${i}_correct" type="number" min="0" value="${it.correctIndex}" style="width:4rem">
+      <button class="iconbtn" onclick="editorRemoveGeneric('identify',${i})">🗑️ Verwijderen</button>
+    </div>`;
+  });
+  html += `<button class="iconbtn" onclick="reeksEditorAdd('identify')">+ Vraag toevoegen</button>`;
+
+  html += `<h3>☑️ Kies de juiste vorm (fillin)</h3>`;
+  (d.fillin||[]).forEach((it,i)=>{
+    html += `<div class="editor-row" style="border-bottom:1px solid #eee;padding:.4rem 0">
+      Niveau ${lvlSel('rfi_'+i+'_level', it.level)}<br>
+      Voor de leemte: <input id="rfi_${i}_prefix" value="${escAttr(it.prefix)}"> ... Na de leemte: <input id="rfi_${i}_suffix" value="${escAttr(it.suffix)}"><br>
+      Juist antwoord: <input id="rfi_${i}_answer" value="${escAttr(it.answer)}"><br>
+      Alle keuzemogelijkheden (komma-gescheiden): <input id="rfi_${i}_options" value="${escAttr((it.options||[]).join(', '))}" style="width:100%">
+      <button class="iconbtn" onclick="editorRemoveGeneric('fillin',${i})">🗑️ Verwijderen</button>
+    </div>`;
+  });
+  html += `<button class="iconbtn" onclick="reeksEditorAdd('fillin')">+ Vraag toevoegen</button>`;
+
+  html += `<h3>✍️ Zelf schrijven (written — ook gebruikt voor dictee)</h3>`;
+  (d.written||[]).forEach((it,i)=>{
+    html += `<div class="editor-row"><input id="rwr_${i}_prompt" value="${escAttr(it.prompt)}" style="width:60%"> Antwoord: <input id="rwr_${i}_answer" value="${escAttr(it.answer)}"> <button class="iconbtn" onclick="editorRemoveGeneric('written',${i})">🗑️</button></div>`;
+  });
+  html += `<button class="iconbtn" onclick="reeksEditorAdd('written')">+ Zin toevoegen</button>`;
+
+  html += `<div style="margin-top:1.5rem;display:flex;gap:.6rem">
+      <button id="reeksEditorSaveBtn" class="nextbtn" onclick="reeksEditorSave()">💾 Wijzigingen opslaan</button>
+      <button class="iconbtn" onclick="reeksEditorClose()">Sluiten</button>
+    </div>`;
+  root.innerHTML = html;
+}
+// kleine hulpjes zodat de verwijder-knoppen hierboven niet in aanvaring komen met
+// de gelijknamige editorRemove() van de handboekeditor (die werkt op editorState,
+// niet op reeksEditorState)
+function editorRemoveExplore(i){ reeksEditorRemove('explore', i); }
+function editorRemoveGeneric(field, i){ reeksEditorRemove(field, i); }
+
+async function renderHandboekNiveau(code){
+  stopSpeech();
+  const lesData = await getLesData(code);
+  const t = getTenseInfo(lesData.tense);
+  const desc = lvl => {
+    const parts = [];
+    if(lvl==='*'){
+      if(lesData.stam) parts.push('stam schrijven');
+      if((lesData.identify||[]).some(it=>it.level==='*')) parts.push('herkennen');
+      if((lesData.fillin||[]).some(it=>it.level==='*')) parts.push('juiste vorm kiezen');
+      if((lesData.persoonsvorm||[]).some(it=>(it.level||'*')==='*')) parts.push('persoonsvorm invullen');
+    } else if(lvl==='**'){
+      if((lesData.fillin||[]).some(it=>(it.level||'**')==='**')) parts.push('zinnen aanvullen');
+      if((lesData.persoonsvorm||[]).some(it=>it.level==='**')) parts.push('verleden tijd invullen');
+      if(lesData.zinvt && (lesData.zinvtLevel||'**')==='**') parts.push('hele zin herschrijven');
+      if((Array.isArray(lesData.vrijetekst)?lesData.vrijetekst:(lesData.vrijetekst?[lesData.vrijetekst]:[])).some(vt=>(vt.level||'***')==='**')) parts.push('AI-gecontroleerd schrijven');
+    } else {
+      if((lesData.persoonsvorm||[]).some(it=>it.level==='***')) parts.push('extra pittige vragen');
+      if(lesData.zinvt && lesData.zinvtLevel==='***') parts.push('hele zin herschrijven');
+      if(lesData.vrijezin) parts.push('zelf zinnen schrijven');
+      if((Array.isArray(lesData.vrijetekst)?lesData.vrijetekst:(lesData.vrijetekst?[lesData.vrijetekst]:[])).some(vt=>(vt.level||'***')==='***')) parts.push('kort verslag schrijven');
+      if(lesData.vrijezin || lesData.vrijetekst) parts.push('AI-gecontroleerd');
+    }
+    return parts.join(' + ') || 'oefeningen';
+  };
+  root.innerHTML = `
+    <button class="backbtn" onclick="${t.backAction}">← Terug</button>
+    <h2>${t.title} — ${reeksNaam('hb_'+code,'1')} ${state.teacherMode ? `<button class="renamebtn" onclick="hernoemReeks('hb_${code}','1')">✏️</button> <button class="iconbtn" onclick="openHandboekEditor('${code}')">🛠️ Oefeningen bewerken</button>` : ''}</h2>
+    <p>Kies je niveau. Hoe meer sterren, hoe meer opdrachten je maakt.</p>
+    <div class="niveau-grid">
+      <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','*')">
+        <b>★</b><p>${desc('*')}</p>
+      </div>
+      <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','**')">
+        <b>★★</b><p>${desc('**')}</p>
+      </div>
+      <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','***')">
+        <b>★★★</b><p>${desc('***')}</p>
+      </div>
+    </div>`;
+}
+async function startHandboekRun(code, level){
+  const order = {'*':1,'**':2,'***':3};
+  const cap = order[level];
+  const lesData = await getLesData(code);
+  const t = getTenseInfo(lesData.tense);
+  const seq = [];
+  seq.push({type:'info', text:`Welkom bij ${reeksNaam('hb_'+code,'1')}.`});
+  if(lesData.brontekst) seq.push({type:'brontekst', data:lesData.brontekst});
+  shuffle([...(lesData.stam||[])]).forEach(it=> seq.push({type:'stam', data:it}));
+  shuffle((lesData.identify||[]).filter(it=>order[it.level]<=cap)).forEach(it=> seq.push({type:'identify', data:it}));
+  shuffle((lesData.persoonsvorm||[]).filter(it=>order[it.level||'*']<=cap)).forEach(it=> seq.push({type:'written', data:it}));
+  if(lesData.stam && lesData.stam.length>=3) seq.push({type:'match', data: lesData.stam.map(it=>({subject:it.infinitief, form:it.antwoord})), matchLabel:'infinitief'});
+  shuffle((lesData.fillin||[]).filter(it=>order[it.level||'**']<=cap)).forEach(it=> seq.push({type:'fillin', data:{...it, level: it.level||'**'}}));
+  if(cap>=order[lesData.zinvtLevel||'**']) shuffle((lesData.zinvt||[]).map(it=>({...it, label: it.label||lesData.zinvtLabel}))).forEach(it=> seq.push({type:'zinvt', data:it}));
+  if(cap>=3) shuffle([...(lesData.vrijezin||[])]).forEach(it=> seq.push({type:'vrijezin', data:it}));
+  (Array.isArray(lesData.vrijetekst) ? lesData.vrijetekst : (lesData.vrijetekst ? [lesData.vrijetekst] : []))
+    .filter(vt=>order[vt.level||'***']<=cap)
+    .forEach(vt=> seq.push({type:'vrijetekst', data:vt}));
+  seq.push({type:'end'});
+  run = { key:lesData.tense, setNum:'hb_'+code, level, seq, i:0, correct:0, total:0, wrong:[], good:[],
+    color:t.color, title:reeksNaam('hb_'+code,'1'), streak:0, bestStreak:0,
+    backAction:`renderHandboekNiveau('${code}')` };
+  renderStep();
+}
+function renderBrontekst(data){
+  window._brontekstText = data.tekst;
+  const hasOpdracht = data.targets && data.targets.length>0;
+  let bodyHtml;
+  if(hasOpdracht){
+    // Tekst opsplitsen in woorden + tussenliggende witruimte, zodat de opmaak
+    // (spaties, regeleinden) exact behouden blijft terwijl elk woord apart
+    // aanklikbaar wordt.
+    const rawTokens = data.tekst.split(/(\s+)/);
+    const remaining = new Map();
+    data.targets.forEach(t=>{
+      const key = t.toLowerCase();
+      remaining.set(key, (remaining.get(key)||0)+1);
+    });
+    const tokens = rawTokens.map(tok=>{
+      if(/^\s*$/.test(tok)) return { ws:true, raw: tok };
+      const clean = tok.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '').toLowerCase();
+      return { ws:false, raw: tok, clean };
+    });
+    run._bt = { tokens, remaining, found:new Set(), total:data.targets.length, foundCount:0 };
+    const wordsHtml = tokens.map((tok,i)=>{
+      if(tok.ws) return tok.raw;
+      return `<span class="bt-word" id="btw${i}" onclick="clickBrontekstWord(${i})" style="cursor:pointer;padding:1px 3px;border-radius:5px;transition:background .2s,color .2s">${tok.raw}</span>`;
+    }).join('');
+    bodyHtml = `<p style="line-height:1.9">${wordsHtml}</p>
+      <p id="btStatus" style="font-weight:700;color:#7c3aed;margin-top:.8rem">${data.opdracht||'Klik op de juiste woorden.'} Nog <span id="btCount">${data.targets.length}</span> te vinden.</p>`;
+  } else {
+    bodyHtml = `<p style="line-height:1.7">${data.tekst}</p>`;
+  }
+  return `<span class="level-badge" style="background:#eef;color:#334">Tekst</span>
+    <h3>${data.titel}</h3>
+    ${bodyHtml}
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
+      <button class="iconbtn" onclick="speakForce(window._brontekstText)">🔊 Lees voor</button>
+      <button class="iconbtn" onclick="stopSpeech()">⏹️ Stop voorlezen</button>
+    </div>
+    <br><button class="nextbtn" style="margin-top:1rem" onclick="nextStep()">Verder ▶</button>`;
+}
+function clickBrontekstWord(i){
+  if(!run || !run._bt) return;
+  const tok = run._bt.tokens[i];
+  if(!tok || tok.ws) return;
+  if(run._bt.found.has(i)) return;
+  const el = document.getElementById('btw'+i);
+  const rem = run._bt.remaining.get(tok.clean) || 0;
+  if(rem > 0){
+    run._bt.remaining.set(tok.clean, rem-1);
+    run._bt.found.add(i);
+    run._bt.foundCount++;
+    if(el){
+      el.style.background = '#dcfce7';
+      el.style.color = '#166534';
+      el.style.fontWeight = '700';
+      el.style.cursor = 'default';
+      el.onclick = null;
+    }
+    const countEl = document.getElementById('btCount');
+    const remainingTotal = run._bt.total - run._bt.foundCount;
+    if(countEl) countEl.textContent = remainingTotal;
+    if(remainingTotal===0){
+      const status = document.getElementById('btStatus');
+      if(status) status.innerHTML = '✅ Je hebt ze allemaal gevonden! Knap gedaan.';
+      speak('Je hebt ze allemaal gevonden! Knap gedaan.');
+    }
+  } else if(el){
+    el.style.background = '#fee2e2';
+    el.style.color = '#991b1b';
+    setTimeout(()=>{ if(el && !run._bt.found.has(i)){ el.style.background=''; el.style.color=''; } }, 500);
+  }
+}
+function renderStam(data){
+  run.total++;
+  setTimeout(()=>speak('Wat is de stam van '+data.infinitief+'?'),50);
+  return `<span class="level-badge" style="background:${levelColors['*']};color:${levelText['*']}">*</span>
+    <p class="prompt">Schrijf de stam van: <b>${data.infinitief}</b></p>
+    <div class="writeform">
+      <input type="text" id="writeInput" autocomplete="off" onkeydown="if(event.key==='Enter')checkStam()">
+      <button class="checkbtn" onclick="checkStam()">Controleer</button>
+    </div>
+    <div id="fb" class="feedback"></div>`;
+}
+function checkStam(){
+  const data = run.seq[run.i].data;
+  const inputEl = document.getElementById('writeInput');
+  const val = inputEl.value.trim();
+  const ok = val.toLowerCase() === data.antwoord.toLowerCase();
+  const fb = document.getElementById('fb');
+  inputEl.disabled = true;
+  document.querySelector('.checkbtn').disabled = true;
+  if(ok){
+    run.correct++; run.good.push(data.antwoord);
+    run.streak++; run.bestStreak = Math.max(run.bestStreak, run.streak);
+    fb.textContent='Mooi zo! ✅'; fb.className='feedback ok';
+    autoNext(900);
+  } else {
+    run.wrong.push({vraag:'stam van '+data.infinitief, juist:data.antwoord});
+    run.streak = 0;
+    fb.textContent='De juiste stam is: '+data.antwoord; fb.className='feedback no';
+    fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+  }
+}
+function renderVrijeZin(data){
+  run.total++;
+  return `<span class="level-badge" style="background:${levelColors['***']};color:${levelText['***']}">***</span>
+    <p class="prompt">Schrijf een goede zin met een vervoegde vorm van: <b>${data.infinitief}</b></p>
+    <div class="writeform">
+      <input type="text" id="writeInput" autocomplete="off" style="width:320px" onkeydown="if(event.key==='Enter')checkVrijeZin()">
+      <button class="checkbtn" onclick="checkVrijeZin()">Laat nakijken</button>
+    </div>
+    <div id="fb" class="feedback"></div>`;
+}
+async function checkVrijeZin(){
+  const data = run.seq[run.i].data;
+  const inputEl = document.getElementById('writeInput');
+  const zin = inputEl.value.trim();
+  const fb = document.getElementById('fb');
+  if(!zin){ fb.textContent='Schrijf eerst een zin.'; fb.className='feedback no'; return; }
+  inputEl.disabled = true;
+  document.querySelector('.checkbtn').disabled = true;
+  fb.textContent = '⏳ Even nakijken...'; fb.className = 'feedback';
+  try{
+    const res = await fetch('/.netlify/functions/check-sentence', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ infinitief: data.infinitief, zin })
+    });
+    const result = await res.json();
+    if(!res.ok){
+      fb.textContent = '❌ Kon niet nakijken: ' + (result.error || 'onbekende fout'); fb.className='feedback no';
+      fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+      return;
+    }
+    if(result.correct){
+      run.correct++; run.good.push(zin);
+      run.streak++; run.bestStreak = Math.max(run.bestStreak, run.streak);
+      fb.textContent = '✅ ' + (result.feedback || 'Goed gedaan!'); fb.className='feedback ok';
+      autoNext(1600);
+    } else {
+      run.wrong.push({vraag:'zin met '+data.infinitief, juist: zin + ' → ' + (result.feedback||'')});
+      run.streak = 0;
+      fb.textContent = '✏️ ' + (result.feedback || 'Dit kan nog beter.'); fb.className='feedback no';
+      fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+    }
+  }catch(e){
+    fb.textContent = '❌ Kon de AI-functie niet bereiken.'; fb.className='feedback no';
+    fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+  }
+}
+
+/* zinvt: een volledige zin herschrijven (bv. tegenwoordige tijd -> verleden tijd), getypt */
+function renderZinVT(data){
+  run.total++;
+  return `<span class="level-badge" style="background:${levelColors['**']};color:${levelText['**']}">**</span>
+    <p class="prompt">${data.label || 'Schrijf deze zin in de verleden tijd:'}</p>
+    <p class="prompt"><b>${data.zin}</b></p>
+    <div class="writeform">
+      <input type="text" id="writeInput" autocomplete="off" style="width:340px" onkeydown="if(event.key==='Enter')checkZinVT()">
+      <button class="checkbtn" onclick="checkZinVT()">Controleer</button>
+    </div>
+    <div id="fb" class="feedback"></div>`;
+}
+function checkZinVT(){
+  const data = run.seq[run.i].data;
+  const inputEl = document.getElementById('writeInput');
+  const val = inputEl.value.trim().replace(/\s+/g,' ');
+  const target = data.antwoord.trim().replace(/\s+/g,' ');
+  const ok = val.toLowerCase().replace(/[.!?]$/,'') === target.toLowerCase().replace(/[.!?]$/,'');
+  const fb = document.getElementById('fb');
+  inputEl.disabled = true;
+  document.querySelector('.checkbtn').disabled = true;
+  if(ok){
+    run.correct++; run.good.push(data.antwoord);
+    run.streak++; run.bestStreak = Math.max(run.bestStreak, run.streak);
+    fb.textContent='Mooi zo! ✅'; fb.className='feedback ok';
+    autoNext(1000);
+  } else {
+    run.wrong.push({vraag:data.zin, juist:data.antwoord});
+    run.streak = 0;
+    fb.textContent='De juiste zin is: '+data.antwoord; fb.className='feedback no';
+    fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+  }
+}
+
+/* vrijetekst: een kort, AI-gecontroleerd tekstje (bv. een verslag), i.p.v. één losse zin */
+function renderVrijeTekst(data){
+  run.total++;
+  return `<span class="level-badge" style="background:${levelColors['***']};color:${levelText['***']}">***</span>
+    <p class="prompt">${data.opdracht}</p>
+    <textarea id="vrijeTekstInput" rows="5" style="width:100%;max-width:500px;padding:.6rem;border:2px solid var(--line);border-radius:10px;font-family:inherit;font-size:1rem"></textarea>
+    <div style="margin-top:.6rem"><button class="checkbtn" onclick="checkVrijeTekst()">Laat nakijken</button></div>
+    <div id="fb" class="feedback"></div>`;
+}
+async function checkVrijeTekst(){
+  const inputEl = document.getElementById('vrijeTekstInput');
+  const tekst = inputEl.value.trim();
+  const data = run.seq[run.i].data;
+  const fb = document.getElementById('fb');
+  if(!tekst){ fb.textContent='Schrijf eerst je tekst.'; fb.className='feedback no'; return; }
+  inputEl.disabled = true;
+  document.querySelector('.checkbtn').disabled = true;
+  fb.textContent = '⏳ Even nakijken...'; fb.className = 'feedback';
+  try{
+    const res = await fetch('/.netlify/functions/check-sentence', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ opdracht: data.opdracht, tekst })
+    });
+    const result = await res.json();
+    if(!res.ok){
+      fb.textContent = '❌ Kon niet nakijken: ' + (result.error || 'onbekende fout'); fb.className='feedback no';
+      fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+      return;
+    }
+    if(result.correct){
+      run.correct++; run.good.push('kort verslag');
+      run.streak++; run.bestStreak = Math.max(run.bestStreak, run.streak);
+      fb.textContent = '✅ ' + (result.feedback || 'Goed gedaan!'); fb.className='feedback ok';
+    } else {
+      run.wrong.push({vraag:'kort verslag', juist: result.feedback||''});
+      run.streak = 0;
+      fb.textContent = '✏️ ' + (result.feedback || 'Dit kan nog beter.'); fb.className='feedback no';
+    }
+    fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+  }catch(e){
+    fb.textContent = '❌ Kon de AI-functie niet bereiken.'; fb.className='feedback no';
+    fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+  }
+}
+function renderAllInNiveau(){
+  stopSpeech();
+  const handboekReeksen = Object.keys(HANDBOEK_DATA).filter(code => HANDBOEK_DATA[code].tense === 'allin');
+  const handboekBtns = handboekReeksen.map(code=>`<span>
+        <button class="bigbtn" style="background:#7c3aed" onclick="renderHandboekNiveau('${code}')">${reeksNaam('hb_'+code,'1')}</button>
+        ${state.teacherMode ? `<button class="renamebtn" title="Naam wijzigen" onclick="hernoemReeks('hb_${code}','1')">✏️</button>` : ''}
+      </span>`).join('');
+  root.innerHTML = `
+    <button class="backbtn" onclick="renderHome()">← Terug</button>
+    <h2>🧠 ${reeksNaam('allin','1')} ${state.teacherMode ? `<button class="renamebtn" onclick="hernoemReeks('allin','1')">✏️</button>` : ''}</h2>
+    <p>Kies je niveau. Hoe meer sterren, hoe meer zinnen je moet herkennen én typen (dictee).</p>
+    <div class="niveau-grid">
+      <div class="niveau-card" style="border-color:#7c3aed" onclick="renderAllIn('*')">
+        <b>★</b><p>15 herkennen + 5 dictee<br>(20 zinnen)</p>
+      </div>
+      <div class="niveau-card" style="border-color:#7c3aed" onclick="renderAllIn('**')">
+        <b>★★</b><p>20 herkennen + 10 dictee<br>(30 zinnen)</p>
+      </div>
+      <div class="niveau-card" style="border-color:#7c3aed" onclick="renderAllIn('***')">
+        <b>★★★</b><p>25 herkennen + 15 dictee<br>(40 zinnen)</p>
+      </div>
+    </div>
+    ${handboekBtns ? `<h3 style="margin-top:1.5rem">Extra lessen</h3><div class="setbtns">${handboekBtns}</div>` : ''}`;
+}
+
+async function renderAllIn(level){
+  const classifyPool = shuffle(await buildAllInSet(level));
+  const dicteePool = await buildDicteeSet(level);
+  const seq = classifyPool.map(p=>({type:'classify', data:p}));
+  seq.push({type:'info', text:'Nu volgt het dictee-gedeelte: luister goed en typ telkens de juiste vorm van het werkwoord.'});
+  dicteePool.forEach(it=> seq.push({type:'dictee', data:it}));
+  run = { key:'allin', setNum:'-', level:level, seq, i:0, correct:0, total:0, wrong:[], good:[],
+    color:'#7c3aed', title:reeksNaam('allin','1'), streak:0, bestStreak:0,
+    backAction:`renderAllInNiveau()` };
+  run.seq.unshift({type:'info', text:'Is het tegenwoordige tijd, verleden tijd of geen persoonsvorm (voltooid deelwoord/bijvoeglijk naamwoord)? Bekijk gerust eerst de spiekbrief.'});
+  run.seq.push({type:'end'});
+  renderStep();
+}
+const classifyLabels = {tt:{name:'Tegenwoordige tijd', color:'#16a34a'}, vt:{name:'Verleden tijd', color:'#2563eb'}, geenpv:{name:'Geen persoonsvorm', color:'#d97706'}};
+
+function renderClassify(data){
+  run.total++;
+  setTimeout(()=>speak(data.text),50);
+  const btns = Object.keys(classifyLabels).map(k=>`<button class="opt" style="border-color:${classifyLabels[k].color}" onclick="checkClassify('${k}')">${classifyLabels[k].name}</button>`).join('');
+  return `<span class="level-badge" style="background:#ede9fe;color:#5b21b6">All-in</span>
+      <p class="prompt">${data.html}</p>
+      <p>Welk geval is dit?</p>
+      <div class="classify-btns">${btns}</div>
+      <div id="fb" class="feedback"></div>`;
+}
+function checkClassify(key){
+  const step = run.seq[run.i];
+  const ok = key === step.data.label;
+  document.querySelectorAll('.classify-btns .opt').forEach(b=>b.onclick=null);
+  const fb = document.getElementById('fb');
+  if(ok){
+    run.correct++; run.good.push(step.data.text+' → '+classifyLabels[step.data.label].name);
+    run.streak++; run.bestStreak = Math.max(run.bestStreak, run.streak);
+    fb.textContent='Mooi zo! ✅ Dit is: '+classifyLabels[step.data.label].name; fb.className='feedback ok';
+    autoNext(900); // geen voorleesfeedback hier: brengt geen meerwaarde
+  } else {
+    run.wrong.push({vraag:step.data.text, juist:classifyLabels[step.data.label].name});
+    run.streak = 0;
+    fb.textContent='Dit was eigenlijk: '+classifyLabels[step.data.label].name; fb.className='feedback no';
+    fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+  }
+}
+
+/* ---------- dictee (All-in): altijd hoorbaar, de leerling typt zelf ---------- */
+function renderDictee(data){
+  run.total++;
+  let text = (data.prompt||'').replace(/^\d+\)\s*/, '');
+  const m = text.match(/^\(([^)]+)\)\s*/);
+  if(m){ text = text.replace(/^\([^)]+\)\s*/, ''); }
+  const fullSentence = text.replace('...', data.answer).replace(/\s+/g,' ').trim();
+  const playDictee = ()=>{
+    if(!window.speechSynthesis) return;
+    try{
+      window.speechSynthesis.cancel();
+      // een echt dictee: de VOLLEDIGE zin wordt voorgelezen, inclusief het (juiste) werkwoord zelf —
+      // de leerling schrijft op wat die hoort, i.p.v. het antwoord zelf te moeten afleiden.
+      window.speechSynthesis.speak(mkUtterance(fullSentence));
+    }catch(e){}
+  };
+  window._dicteePlay = playDictee;
+  // dictee wordt hoorbaar afgespeeld, los van de voorlezen-schakelaar. Meteen (synchroon) afspelen,
+  // niet via setTimeout: veel browsers (vooral op tablets/telefoons) blokkeren geluid dat niet
+  // rechtstreeks binnen dezelfde klik gestart wordt. De knop hieronder werkt in elk geval altijd,
+  // want die klik telt zelf als een nieuwe, geldige gebruikersactie.
+  playDictee();
+  return `<span class="level-badge" style="background:#ede9fe;color:#5b21b6">Dictee</span>
+    <p class="prompt">Luister goed en schrijf de juiste vorm van het werkwoord.</p>
+    <p class="prompt">${data.prompt}</p>
+    <button class="iconbtn" onclick="window._dicteePlay()">🔊 Beluister deze zin</button>
+    <span style="font-size:.8rem;color:#888;margin-left:.4rem">(klik hier als je niets hoorde)</span>
+    <div class="writeform" style="margin-top:.8rem">
+      <input type="text" id="writeInput" autocomplete="off" onkeydown="if(event.key==='Enter')checkDictee()">
+      <button class="checkbtn" onclick="checkDictee()">Controleer</button>
+    </div>
+    <div id="fb" class="feedback"></div>`;
+}
+function checkDictee(){
+  const data = run.seq[run.i].data;
+  const inputEl = document.getElementById('writeInput');
+  const val = inputEl.value.trim();
+  const ok = val.toLowerCase() === data.answer.toLowerCase();
+  const fb = document.getElementById('fb');
+  inputEl.disabled = true;
+  document.querySelector('.checkbtn').disabled = true;
+  if(ok){
+    run.correct++; run.good.push(data.answer);
+    run.streak++; run.bestStreak = Math.max(run.bestStreak, run.streak);
+    fb.textContent='Mooi zo! ✅'; fb.className='feedback ok';
+    autoNext(900);
+  } else {
+    run.wrong.push({vraag:data.prompt, juist:data.answer});
+    run.streak = 0;
+    fb.textContent='Het juiste antwoord is: '+data.answer; fb.className='feedback no';
+    fb.insertAdjacentHTML('afterend','<button class="nextbtn" onclick="nextStep()">Volgende ▶</button>');
+  }
+}
+
+/* ---------- init ---------- */
+overridesPromise = loadSharedOverrides(); // start meteen op de achtergrond op te halen
+renderLogin();

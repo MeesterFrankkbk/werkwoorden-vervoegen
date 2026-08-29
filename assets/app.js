@@ -1030,7 +1030,7 @@ function renderHandboekNiveau(code){
     const parts = [];
     if(lvl==='*'){
       if(lesData.stam) parts.push('stam schrijven');
-      if((lesData.identify||[]).some(it=>it.level==='*')) parts.push('klankverandering herkennen');
+      if((lesData.identify||[]).some(it=>it.level==='*')) parts.push('herkennen');
       if((lesData.fillin||[]).some(it=>it.level==='*')) parts.push('juiste vorm kiezen');
       if((lesData.persoonsvorm||[]).some(it=>(it.level||'*')==='*')) parts.push('persoonsvorm invullen');
     } else if(lvl==='**'){
@@ -1073,7 +1073,7 @@ function startHandboekRun(code, level){
   shuffle((lesData.persoonsvorm||[]).filter(it=>order[it.level||'*']<=cap)).forEach(it=> seq.push({type:'written', data:it}));
   if(lesData.stam && lesData.stam.length>=3) seq.push({type:'match', data: lesData.stam.map(it=>({subject:it.infinitief, form:it.antwoord}))});
   shuffle((lesData.fillin||[]).filter(it=>order[it.level||'**']<=cap)).forEach(it=> seq.push({type:'fillin', data:{...it, level: it.level||'**'}}));
-  if(cap>=2) shuffle([...(lesData.zinvt||[])]).forEach(it=> seq.push({type:'zinvt', data:it}));
+  if(cap>=2) shuffle((lesData.zinvt||[]).map(it=>({...it, label: it.label||lesData.zinvtLabel}))).forEach(it=> seq.push({type:'zinvt', data:it}));
   if(cap>=3) shuffle([...(lesData.vrijezin||[])]).forEach(it=> seq.push({type:'vrijezin', data:it}));
   if(cap>=3 && lesData.vrijetekst) seq.push({type:'vrijetekst', data:lesData.vrijetekst});
   seq.push({type:'end'});
@@ -1172,7 +1172,7 @@ async function checkVrijeZin(){
 function renderZinVT(data){
   run.total++;
   return `<span class="level-badge" style="background:${levelColors['**']};color:${levelText['**']}">**</span>
-    <p class="prompt">Schrijf deze zin in de verleden tijd:</p>
+    <p class="prompt">${data.label || 'Schrijf deze zin in de verleden tijd:'}</p>
     <p class="prompt"><b>${data.zin}</b></p>
     <div class="writeform">
       <input type="text" id="writeInput" autocomplete="off" style="width:340px" onkeydown="if(event.key==='Enter')checkZinVT()">

@@ -355,11 +355,19 @@ async function saveAIReeks(tense, naam){
   const kept = getKeptAIExercises();
   if(kept.length === 0){ alert('Vink minstens één oefening aan.'); return; }
   const list = loadAIReeksen();
-  list.push({ id: Date.now(), naam, tense, exercises: kept, createdAt: new Date().toLocaleDateString('nl-BE') });
+  const bestaande = list.find(r=> r.tense===tense && r.naam.trim().toLowerCase()===naam.trim().toLowerCase());
   try{
-    await saveAIReeksenList(list);
-    renderSavedAIReeksen();
-    alert(`Reeks "${naam}" is bewaard en meteen zichtbaar voor leerlingen, op elk toestel.`);
+    if(bestaande){
+      bestaande.exercises.push(...kept);
+      await saveAIReeksenList(list);
+      renderSavedAIReeksen();
+      alert(`Toegevoegd aan de bestaande reeks "${bestaande.naam}" (nu ${bestaande.exercises.length} zinnen in totaal, verdeeld over de niveaus).`);
+    } else {
+      list.push({ id: Date.now(), naam, tense, exercises: kept, createdAt: new Date().toLocaleDateString('nl-BE') });
+      await saveAIReeksenList(list);
+      renderSavedAIReeksen();
+      alert(`Reeks "${naam}" is bewaard en meteen zichtbaar voor leerlingen, op elk toestel. Bewaar later nog eens onder exact dezelfde naam om er niveaus aan toe te voegen.`);
+    }
   }catch(e){
     alert('Kon niet opslaan: ' + e.message);
   }
@@ -375,7 +383,7 @@ function renderSavedAIReeksen(){
       <span><b>${r.naam}</b> <span style="color:#888;font-size:.85rem">(${tenseNames[r.tense]||r.tense} · ${r.exercises.length} zinnen · ${r.createdAt})</span></span>
       <span>
         <button class="renamebtn" onclick="hernoemAIReeks(${r.id})">✏️</button>
-        <button class="renamebtn" onclick="startSavedAIReeks(${r.id})">▶ Start</button>
+        <button class="renamebtn" onclick="renderAIReeksNiveau(${r.id})">▶ Start</button>
         <button class="renamebtn" onclick="deleteAIReeks(${r.id})">🗑️</button>
       </span>
     </div>`).join('');
@@ -405,11 +413,42 @@ async function deleteAIReeks(id){
     alert('Kon niet verwijderen: ' + e.message);
   }
 }
-function startSavedAIReeks(id){
+/* In plaats van een bewaarde AI-reeks meteen volledig te starten, tonen we nu
+   eerst een niveau-scherm (★/★★/★★★), net als bij de handboekreeksen en de
+   gewone tt/vt/geenpv-reeksen. Elke losse zin in de reeks draagt al een eigen
+   "level"-veld (meegegeven bij het genereren) — cumulatief filteren op dat
+   niveau geeft dus exact hetzelfde gedrag als elders in de app. */
+function renderAIReeksNiveau(id){
+  stopSpeech();
+  const item = loadAIReeksen().find(r=>r.id===id);
+  if(!item) return renderHome();
+  const t = WERKWOORDEN_DATA[item.tense] || {color:'#0891b2', title:'AI-oefening'};
+  const order = {'*':1,'**':2,'***':3};
+  const countFor = capLevel => item.exercises.filter(ex=>order[ex.level||'*']<=order[capLevel]).length;
+  root.innerHTML = `
+    <button class="backbtn" onclick="renderTopic('${item.tense}')">← Terug</button>
+    <h2>✨ ${item.naam}</h2>
+    <p>Kies je niveau. Hoe meer sterren, hoe meer zinnen je maakt.</p>
+    <div class="niveau-grid">
+      <div class="niveau-card" style="border-color:${t.color}" onclick="startAIRunFromSaved(${id},'*')">
+        <b>★</b><p>${countFor('*')} zinnen</p>
+      </div>
+      <div class="niveau-card" style="border-color:${t.color}" onclick="startAIRunFromSaved(${id},'**')">
+        <b>★★</b><p>${countFor('**')} zinnen</p>
+      </div>
+      <div class="niveau-card" style="border-color:${t.color}" onclick="startAIRunFromSaved(${id},'***')">
+        <b>★★★</b><p>${countFor('***')} zinnen</p>
+      </div>
+    </div>`;
+}
+function startAIRunFromSaved(id, level){
   const item = loadAIReeksen().find(r=>r.id===id);
   if(!item) return;
-  aiGenerated = item.exercises;
-  startAIRunWithData(item.tense, item.naam, item.exercises);
+  const order = {'*':1,'**':2,'***':3};
+  const cap = order[level];
+  const exercises = shuffle(item.exercises.filter(ex=>order[ex.level||'*']<=cap));
+  aiGenerated = exercises;
+  startAIRunWithData(item.tense, item.naam, exercises, `renderAIReeksNiveau(${id})`);
 }
 /* Zelfde als hernoemAIReeks/deleteAIReeks, maar dan gebruikt vanaf het gewone
    onderwerp-scherm (renderTopic), waar geen #aiSavedList bestaat om in te
@@ -439,11 +478,11 @@ async function deleteAIReeksAndRefresh(id){
     alert('Kon niet verwijderen: ' + e.message);
   }
 }
-function startAIRunWithData(tense, naam, exercises){
+function startAIRunWithData(tense, naam, exercises, backAction){
   const t = WERKWOORDEN_DATA[tense] || {color:'#0891b2', title:'AI-oefening'};
   run = { key: tense, setNum:'AI', level:'AI', seq: exercises.map(ex=>({type:'fillin', data:ex})), i:0, correct:0, total:0, wrong:[], good:[],
     color:t.color, title:naam, streak:0, bestStreak:0,
-    backAction:`renderTopic('${tense}')` };
+    backAction: backAction || `renderTopic('${tense}')` };
   run.seq.unshift({type:'info', text:`Deze oefening ("${naam}") werd door de AI gemaakt op vraag van de leerkracht. Veel succes!`});
   run.seq.push({type:'end'});
   renderStep();
@@ -650,7 +689,7 @@ function renderTopic(key){
       </span>`).join('');
   const aiReeksen = loadAIReeksen().filter(r=>r.tense===key);
   const aiBtns = aiReeksen.map(r=>`<span>
-        <button class="bigbtn" style="background:${t.color}" onclick="startSavedAIReeks(${r.id})">✨ ${r.naam}</button>
+        <button class="bigbtn" style="background:${t.color}" onclick="renderAIReeksNiveau(${r.id})">✨ ${r.naam}</button>
         ${state.teacherMode ? `<button class="renamebtn" title="Naam wijzigen" onclick="hernoemAIReeksAndRefresh(${r.id})">✏️</button><button class="renamebtn" title="Verwijderen" onclick="deleteAIReeksAndRefresh(${r.id})">🗑️</button>` : ''}
       </span>`).join('');
   root.innerHTML = `

@@ -47,7 +47,7 @@ Geef voor elke zin een object met:
 - "prefix": het deel van de zin VOOR het werkwoord (zonder het werkwoord zelf)
 - "suffix": het deel van de zin NA het werkwoord, inclusief het leesteken op het einde
 - "answer": de correcte vervoeging op deze plek
-- "options": een lijst van precies 3 mogelijke vormen (de juiste + 2 aannemelijke foute vervoegingen van hetzelfde werkwoord)
+- "options": een lijst van precies 3 mogelijke vormen (de juiste vorm + 2 andere, ECHT BESTAANDE vervoegingen van hetzelfde werkwoord, bv. een andere persoon, tijd of het voltooid deelwoord — GEEN verzonnen of niet-bestaande spellingen, want dat kan leerlingen met spellingmoeilijkheden een foute spelling aanleren)
 - "infinitief": de infinitief van het gebruikte werkwoord
 
 Antwoord ALLEEN met geldige JSON in dit exacte formaat, zonder verdere uitleg of markdown:

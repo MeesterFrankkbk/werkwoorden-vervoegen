@@ -264,5 +264,48 @@ const HANDBOEK_DATA = {
     vrijetekst: {
       opdracht: "Schrijf drie zinnen die passen bij het verhaal van Setne, elk met een ander werkwoord uit deze lijst, vervoegd in de verleden tijd: weten, vragen, moeten, proberen, luisteren, verliezen, houden, geven, zien, pakken, beginnen, brengen, zijn."
     }
+  },
+  "TK060506": {
+    tense: "allin",
+    titel: "Experimenteren met wat we leerden (TK060506)",
+    /* niveau *: getypte vorm, tt/vt/vd door elkaar (cirkel, oefening 2) */
+    persoonsvorm: [
+      {prompt:"(staan) Samen met mijn ouders ... ik te wachten op een taxi.", answer:"sta", level:"*"},
+      {prompt:"(tonen) De taxichauffeur ... ons waar we de bagage mogen plaatsen.", answer:"toont", level:"*"},
+      {prompt:"(zijn) Onze vakantie ... nu echt voorbij.", answer:"is", level:"*"},
+      {prompt:"(willen) Ik ... graag nog wat langer blijven.", answer:"wilde", level:"*"},
+      {prompt:"(dromen) Vannacht ... ik dat we nog niet naar huis moesten.", answer:"droomde", level:"*"},
+      {prompt:"(zwemmen) In mijn droom ... ik nog lekker in het zwembad.", answer:"zwom", level:"*"},
+      {prompt:"(horen) Plots ... ik een luide melodie.", answer:"hoorde", level:"*"},
+      {prompt:"(maken) Mijn wekker had een einde ... aan mijn fijne droom.", answer:"gemaakt", level:"*"},
+      {prompt:"(zien) Ik ... dat het tijd was om op te staan.", answer:"zag", level:"*"},
+      /* niveau **: bij een voltooid deelwoord de infinitief typen (vierkant, oefening 3) */
+      {prompt:"Eduard heeft een tijdje als kelner gewerkt. Wat is de infinitief van 'gewerkt'?", answer:"werken", level:"**"},
+      {prompt:"De taverne is onlangs gesloten. Wat is de infinitief van 'gesloten'?", answer:"sluiten", level:"**"},
+      {prompt:"Toen heeft hij beslist te gaan solliciteren. Wat is de infinitief van 'beslist'?", answer:"beslissen", level:"**"},
+      {prompt:"Eduard heeft altijd goed gestudeerd. Wat is de infinitief van 'gestudeerd'?", answer:"studeren", level:"**"},
+      {prompt:"Als puber heeft hij op een Franse school gezeten. Wat is de infinitief van 'gezeten'?", answer:"zitten", level:"**"},
+      {prompt:"Het sollicitatiegesprek is goed verlopen. Wat is de infinitief van 'verlopen'?", answer:"verlopen", level:"**"},
+      {prompt:"Eduard heeft de nieuwe job gekregen. Wat is de infinitief van 'gekregen'?", answer:"krijgen", level:"**"},
+      {prompt:"Hij is nu begonnen als reisleider. Wat is de infinitief van 'begonnen'?", answer:"beginnen", level:"**"},
+      {prompt:"Hij heeft al veel reizigers begeleid. Wat is de infinitief van 'begeleid'?", answer:"begeleiden", level:"**"}
+    ],
+    /* niveau **: zin herschrijven naar de verleden tijd, zonder voltooid deelwoord (vierkant, oefening 4) */
+    zinvtLabel: "Herschrijf deze zin in de verleden tijd (zonder voltooid deelwoord):",
+    zinvt: [
+      {zin:"Eduard heeft een tijdje als kelner gewerkt.", antwoord:"Eduard werkte een tijdje als kelner."},
+      {zin:"De taverne is onlangs gesloten.", antwoord:"De taverne sloot onlangs."},
+      {zin:"Toen heeft hij beslist te gaan solliciteren als reisleider.", antwoord:"Toen besliste hij te gaan solliciteren als reisleider."},
+      {zin:"Eduard heeft altijd goed gestudeerd.", antwoord:"Eduard studeerde altijd goed."},
+      {zin:"Als puber heeft hij op een Franse school gezeten.", antwoord:"Als puber zat hij op een Franse school."},
+      {zin:"Het sollicitatiegesprek is goed verlopen.", antwoord:"Het sollicitatiegesprek verliep goed."},
+      {zin:"Eduard heeft de nieuwe job gekregen.", antwoord:"Eduard kreeg de nieuwe job."},
+      {zin:"Hij is nu begonnen als reisleider in Egypte.", antwoord:"Hij begon onlangs als reisleider in Egypte."},
+      {zin:"Hij heeft al veel reizigers begeleid.", antwoord:"Hij begeleidde al veel reizigers."}
+    ],
+    /* niveau ***: AI-gecontroleerd reisverslag (driehoek, oefening 5) */
+    vrijetekst: {
+      opdracht: "Kruip in de huid van Eduard, de reisleider. Schrijf een kort reisverslag (minstens 3 zinnen) over iets wat je meemaakte, in de verleden tijd."
+    }
   }
 };

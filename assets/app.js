@@ -744,6 +744,13 @@ function renderIdentify(data){
     data._shuffled = true;
   }
   const opts = data.options.map((o,idx)=>`<button class="opt" onclick="checkIdentify(this,${idx})">${o}</button>`).join('');
+  if(data.plain){
+    setTimeout(()=>speak(data.prompt.replace(/<[^>]+>/g,'')),50);
+    return `<span class="level-badge" style="background:${levelColors[data.level]};color:${levelText[data.level]}">${data.level}</span>
+    <p class="prompt">${data.prompt}</p>
+    <div class="options">${opts}</div>
+    <div id="fb" class="feedback"></div>`;
+  }
   setTimeout(()=>speakBlankPrompt(data.prompt),50);
   return `<span class="level-badge" style="background:${levelColors[data.level]};color:${levelText[data.level]}">${data.level}</span>
     <p class="prompt">Vul de zin aan: ${data.prompt}</p>
@@ -1023,9 +1030,18 @@ function buildDicteeSet(maxLevel){
 }
 
 /* ========== Handboeklessen (TK-bestanden) ========== */
+/* Geeft titel/kleur/terugknop voor een tense-waarde, inclusief het speciale geval "allin"
+   (dat geen eigen ingang heeft in WERKWOORDEN_DATA, in tegenstelling tot tt/vt/geenpv). */
+function getTenseInfo(tense){
+  if(tense === 'allin'){
+    return { title: reeksNaam('allin','1'), color:'#7c3aed', backAction:`renderAllInNiveau()` };
+  }
+  const t = WERKWOORDEN_DATA[tense];
+  return { title: t.title, color: t.color, backAction:`renderTopic('${tense}')` };
+}
 function renderHandboekNiveau(code){
   const lesData = HANDBOEK_DATA[code];
-  const t = WERKWOORDEN_DATA[lesData.tense];
+  const t = getTenseInfo(lesData.tense);
   const desc = lvl => {
     const parts = [];
     if(lvl==='*'){
@@ -1045,7 +1061,7 @@ function renderHandboekNiveau(code){
     return parts.join(' + ') || 'oefeningen';
   };
   root.innerHTML = `
-    <button class="backbtn" onclick="renderTopic('${lesData.tense}')">← Terug</button>
+    <button class="backbtn" onclick="${t.backAction}">← Terug</button>
     <h2>${t.title} — ${reeksNaam('hb_'+code,'1')} ${state.teacherMode ? `<button class="renamebtn" onclick="hernoemReeks('hb_${code}','1')">✏️</button>` : ''}</h2>
     <p>Kies je niveau. Hoe meer sterren, hoe meer opdrachten je maakt.</p>
     <div class="niveau-grid">
@@ -1064,7 +1080,7 @@ function startHandboekRun(code, level){
   const order = {'*':1,'**':2,'***':3};
   const cap = order[level];
   const lesData = HANDBOEK_DATA[code];
-  const t = WERKWOORDEN_DATA[lesData.tense];
+  const t = getTenseInfo(lesData.tense);
   const seq = [];
   seq.push({type:'info', text:`Welkom bij ${reeksNaam('hb_'+code,'1')}.`});
   if(lesData.brontekst) seq.push({type:'brontekst', data:lesData.brontekst});
@@ -1247,7 +1263,14 @@ async function checkVrijeTekst(){
   }
 }
 function renderAllInNiveau(){
-  root.innerHTML = ` ${state.teacherMode ? `<button class="renamebtn" onclick="hernoemReeks('allin','1')">✏️</button>` : ''}</h2>
+  const handboekReeksen = Object.keys(HANDBOEK_DATA).filter(code => HANDBOEK_DATA[code].tense === 'allin');
+  const handboekBtns = handboekReeksen.map(code=>`<span>
+        <button class="bigbtn" style="background:#7c3aed" onclick="renderHandboekNiveau('${code}')">${reeksNaam('hb_'+code,'1')}</button>
+        ${state.teacherMode ? `<button class="renamebtn" title="Naam wijzigen" onclick="hernoemReeks('hb_${code}','1')">✏️</button>` : ''}
+      </span>`).join('');
+  root.innerHTML = `
+    <button class="backbtn" onclick="renderHome()">← Terug</button>
+    <h2>🧠 ${reeksNaam('allin','1')} ${state.teacherMode ? `<button class="renamebtn" onclick="hernoemReeks('allin','1')">✏️</button>` : ''}</h2>
     <p>Kies je niveau. Hoe meer sterren, hoe meer zinnen je moet herkennen én typen (dictee).</p>
     <div class="niveau-grid">
       <div class="niveau-card" style="border-color:#7c3aed" onclick="renderAllIn('*')">
@@ -1259,7 +1282,8 @@ function renderAllInNiveau(){
       <div class="niveau-card" style="border-color:#7c3aed" onclick="renderAllIn('***')">
         <b>★★★</b><p>25 herkennen + 15 dictee<br>(40 zinnen)</p>
       </div>
-    </div>`;
+    </div>
+    ${handboekBtns ? `<h3 style="margin-top:1.5rem">Extra lessen</h3><div class="setbtns">${handboekBtns}</div>` : ''}`;
 }
 
 function renderAllIn(level){

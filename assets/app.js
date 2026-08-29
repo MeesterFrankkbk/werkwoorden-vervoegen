@@ -344,21 +344,25 @@ function getKeptAIExercises(){
   });
 }
 
-/* ---------- opgeslagen AI-reeksen (per browser, net als de reeksnamen) ---------- */
+/* ---------- opgeslagen AI-reeksen (gedeeld, net als reeksnamen en oefeningeninhoud) ---------- */
 function loadAIReeksen(){
-  try{ return JSON.parse(localStorage.getItem('ai_reeksen') || '[]'); }catch(e){ return []; }
+  return (sharedOverrides && sharedOverrides['ai_reeksen']) || [];
 }
-function saveAIReeksenList(list){
-  localStorage.setItem('ai_reeksen', JSON.stringify(list));
+async function saveAIReeksenList(list){
+  await saveOverride('ai_reeksen', list);
 }
-function saveAIReeks(tense, naam){
+async function saveAIReeks(tense, naam){
   const kept = getKeptAIExercises();
   if(kept.length === 0){ alert('Vink minstens één oefening aan.'); return; }
   const list = loadAIReeksen();
   list.push({ id: Date.now(), naam, tense, exercises: kept, createdAt: new Date().toLocaleDateString('nl-BE') });
-  saveAIReeksenList(list);
-  renderSavedAIReeksen();
-  alert(`Reeks "${naam}" is bewaard (in dit beheerpaneel, op dit toestel).`);
+  try{
+    await saveAIReeksenList(list);
+    renderSavedAIReeksen();
+    alert(`Reeks "${naam}" is bewaard en meteen zichtbaar voor leerlingen, op elk toestel.`);
+  }catch(e){
+    alert('Kon niet opslaan: ' + e.message);
+  }
 }
 function renderSavedAIReeksen(){
   const wrap = document.getElementById('aiSavedList');
@@ -375,23 +379,31 @@ function renderSavedAIReeksen(){
         <button class="renamebtn" onclick="deleteAIReeks(${r.id})">🗑️</button>
       </span>
     </div>`).join('');
-  wrap.innerHTML = `<h3>Bewaarde AI-reeksen</h3>${rows}`;
+  wrap.innerHTML = `<h3>Bewaarde AI-reeksen (zichtbaar voor leerlingen)</h3>${rows}`;
 }
-function hernoemAIReeks(id){
+async function hernoemAIReeks(id){
   const list = loadAIReeksen();
   const item = list.find(r=>r.id===id);
   if(!item) return;
   const nieuw = prompt('Nieuwe naam voor deze reeks:', item.naam);
   if(nieuw && nieuw.trim()){
     item.naam = nieuw.trim();
-    saveAIReeksenList(list);
-    renderSavedAIReeksen();
+    try{
+      await saveAIReeksenList(list);
+      renderSavedAIReeksen();
+    }catch(e){
+      alert('Kon niet opslaan: ' + e.message);
+    }
   }
 }
-function deleteAIReeks(id){
-  if(!confirm('Deze bewaarde reeks verwijderen?')) return;
-  saveAIReeksenList(loadAIReeksen().filter(r=>r.id!==id));
-  renderSavedAIReeksen();
+async function deleteAIReeks(id){
+  if(!confirm('Deze bewaarde reeks verwijderen? Dit verwijdert ze voor iedereen.')) return;
+  try{
+    await saveAIReeksenList(loadAIReeksen().filter(r=>r.id!==id));
+    renderSavedAIReeksen();
+  }catch(e){
+    alert('Kon niet verwijderen: ' + e.message);
+  }
 }
 function startSavedAIReeks(id){
   const item = loadAIReeksen().find(r=>r.id===id);
@@ -399,11 +411,39 @@ function startSavedAIReeks(id){
   aiGenerated = item.exercises;
   startAIRunWithData(item.tense, item.naam, item.exercises);
 }
+/* Zelfde als hernoemAIReeks/deleteAIReeks, maar dan gebruikt vanaf het gewone
+   onderwerp-scherm (renderTopic), waar geen #aiSavedList bestaat om in te
+   verversen — hier herbouwen we dus gewoon dat hele scherm opnieuw. */
+async function hernoemAIReeksAndRefresh(id){
+  const list = loadAIReeksen();
+  const item = list.find(r=>r.id===id);
+  if(!item) return;
+  const nieuw = prompt('Nieuwe naam voor deze reeks:', item.naam);
+  if(nieuw && nieuw.trim()){
+    item.naam = nieuw.trim();
+    try{
+      await saveAIReeksenList(list);
+      renderTopic(item.tense);
+    }catch(e){
+      alert('Kon niet opslaan: ' + e.message);
+    }
+  }
+}
+async function deleteAIReeksAndRefresh(id){
+  const item = loadAIReeksen().find(r=>r.id===id);
+  if(!item || !confirm('Deze bewaarde reeks verwijderen? Dit verwijdert ze voor iedereen.')) return;
+  try{
+    await saveAIReeksenList(loadAIReeksen().filter(r=>r.id!==id));
+    renderTopic(item.tense);
+  }catch(e){
+    alert('Kon niet verwijderen: ' + e.message);
+  }
+}
 function startAIRunWithData(tense, naam, exercises){
   const t = WERKWOORDEN_DATA[tense] || {color:'#0891b2', title:'AI-oefening'};
   run = { key: tense, setNum:'AI', level:'AI', seq: exercises.map(ex=>({type:'fillin', data:ex})), i:0, correct:0, total:0, wrong:[], good:[],
     color:t.color, title:naam, streak:0, bestStreak:0,
-    backAction:`renderTeacherPanel()` };
+    backAction:`renderTopic('${tense}')` };
   run.seq.unshift({type:'info', text:`Deze oefening ("${naam}") werd door de AI gemaakt op vraag van de leerkracht. Veel succes!`});
   run.seq.push({type:'end'});
   renderStep();
@@ -608,6 +648,11 @@ function renderTopic(key){
         <button class="bigbtn" style="background:${t.color}" onclick="renderHandboekNiveau('${code}')">${reeksNaam('hb_'+code,'1')}</button>
         ${state.teacherMode ? `<button class="renamebtn" title="Naam wijzigen" onclick="hernoemReeks('hb_${code}','1')">✏️</button>` : ''}
       </span>`).join('');
+  const aiReeksen = loadAIReeksen().filter(r=>r.tense===key);
+  const aiBtns = aiReeksen.map(r=>`<span>
+        <button class="bigbtn" style="background:${t.color}" onclick="startSavedAIReeks(${r.id})">✨ ${r.naam}</button>
+        ${state.teacherMode ? `<button class="renamebtn" title="Naam wijzigen" onclick="hernoemAIReeksAndRefresh(${r.id})">✏️</button><button class="renamebtn" title="Verwijderen" onclick="deleteAIReeksAndRefresh(${r.id})">🗑️</button>` : ''}
+      </span>`).join('');
   root.innerHTML = `
     <button class="backbtn" onclick="renderHome()">← Terug</button>
     <h2>${t.title}</h2>
@@ -619,6 +664,7 @@ function renderTopic(key){
       </span>`).join('')}
       ${handboekBtns}
     </div>
+    ${aiBtns ? `<h3 style="margin-top:1.2rem">✨ Extra AI-oefeningen</h3><div class="setbtns">${aiBtns}</div>` : ''}
     <div style="margin-top:1.2rem">
       <img src="assets/${t.schema}" style="max-width:100%;border-radius:12px;border:2px solid var(--line)">
     </div>`;

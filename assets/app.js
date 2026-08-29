@@ -383,6 +383,7 @@ function renderSavedAIReeksen(){
       <span><b>${r.naam}</b> <span style="color:#888;font-size:.85rem">(${tenseNames[r.tense]||r.tense} · ${r.exercises.length} zinnen · ${r.createdAt})</span></span>
       <span>
         <button class="renamebtn" onclick="hernoemAIReeks(${r.id})">✏️</button>
+        <button class="renamebtn" onclick="openAIReeksEditor(${r.id})">🛠️ Bewerken</button>
         <button class="renamebtn" onclick="renderAIReeksNiveau(${r.id})">▶ Start</button>
         <button class="renamebtn" onclick="deleteAIReeks(${r.id})">🗑️</button>
       </span>
@@ -497,6 +498,89 @@ function copyAIJson(){
   const text = JSON.stringify(kept, null, 1);
   navigator.clipboard ? navigator.clipboard.writeText(text).then(()=>alert('JSON gekopieerd! Plak dit in de chat als je wil dat deze oefeningen permanent aan de app toegevoegd worden.'))
     : prompt('Kopieer deze JSON:', text);
+}
+
+/* ---------- leerkracht: inhoud van een bewaarde AI-reeks bewerken ----------
+   Elke zin in zo'n reeks heeft dezelfde vorm als een gewone "kies de juiste
+   vorm"-oefening (prefix/suffix/answer/options/level), dus deze editor lijkt
+   sterk op openReeksEditor hierboven, maar werkt op de AI-reeksenlijst i.p.v.
+   op WERKWOORDEN_DATA. */
+let aiEditorState = null;
+let aiEditorId = null;
+
+function openAIReeksEditor(id){
+  if(!state.teacherMode) return;
+  stopSpeech();
+  const item = loadAIReeksen().find(r=>r.id===id);
+  if(!item) return;
+  aiEditorId = id;
+  aiEditorState = JSON.parse(JSON.stringify(item));
+  renderAIReeksEditor();
+}
+function syncAIEditorFromDOM(){
+  const val = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  aiEditorState.naam = val('aied_naam');
+  aiEditorState.exercises.forEach((it,i)=>{
+    it.prefix = val('aied_'+i+'_prefix');
+    it.suffix = val('aied_'+i+'_suffix');
+    it.answer = val('aied_'+i+'_answer');
+    it.level = val('aied_'+i+'_level');
+    it.options = val('aied_'+i+'_options').split(',').map(s=>s.trim()).filter(Boolean);
+  });
+}
+function aiEditorAdd(){
+  syncAIEditorFromDOM();
+  aiEditorState.exercises.push({level:'*', prefix:'', suffix:'', answer:'', options:['','','']});
+  renderAIReeksEditor();
+}
+function aiEditorRemove(i){
+  syncAIEditorFromDOM();
+  aiEditorState.exercises.splice(i,1);
+  renderAIReeksEditor();
+}
+async function aiEditorSave(){
+  syncAIEditorFromDOM();
+  const btn = document.getElementById('aiEditorSaveBtn');
+  if(btn){ btn.disabled = true; btn.textContent = '💾 Bezig met opslaan...'; }
+  try{
+    const list = loadAIReeksen();
+    const idx = list.findIndex(r=>r.id===aiEditorId);
+    if(idx===-1) throw new Error('Deze reeks bestaat niet meer.');
+    list[idx] = aiEditorState;
+    await saveAIReeksenList(list);
+    alert('Wijzigingen opgeslagen! Alle leerlingen krijgen vanaf nu deze aangepaste versie te zien.');
+  }catch(e){
+    alert('Opslaan is mislukt: ' + e.message);
+  }
+  renderAIReeksEditor();
+}
+function aiEditorClose(){
+  aiEditorState = null; aiEditorId = null;
+  renderTeacherPanel();
+}
+function renderAIReeksEditor(){
+  const d = aiEditorState;
+  const lvlSel = (id, current) => `<select id="${id}">${['*','**','***'].map(l=>`<option value="${l}" ${l===current?'selected':''}>${l}</option>`).join('')}</select>`;
+  let html = `<button class="backbtn" onclick="aiEditorClose()">← Terug zonder verder te bewerken</button>
+    <h2>🛠️ AI-reeks bewerken</h2>
+    <label>Naam<br><input id="aied_naam" value="${escAttr(d.naam)}" style="width:100%"></label>
+    <p style="color:#666;font-size:.85rem">Let op: als je de naam hier wijzigt naar een naam die al bij een andere reeks bestaat, blijven het twee losse reeksen — samenvoegen gebeurt enkel bij het opslaan vanuit de AI-generator zelf.</p>
+    <h3 style="margin-top:1rem">Zinnen (${d.exercises.length})</h3>`;
+  d.exercises.forEach((it,i)=>{
+    html += `<div class="editor-row" style="border-bottom:1px solid #eee;padding:.4rem 0">
+      Niveau ${lvlSel('aied_'+i+'_level', it.level||'*')}<br>
+      Voor de leemte: <input id="aied_${i}_prefix" value="${escAttr(it.prefix)}"> ... Na de leemte: <input id="aied_${i}_suffix" value="${escAttr(it.suffix)}"><br>
+      Juist antwoord: <input id="aied_${i}_answer" value="${escAttr(it.answer)}"><br>
+      Alle keuzemogelijkheden (komma-gescheiden, moet het juiste antwoord bevatten): <input id="aied_${i}_options" value="${escAttr((it.options||[]).join(', '))}" style="width:100%">
+      <button class="iconbtn" onclick="aiEditorRemove(${i})">🗑️ Verwijderen</button>
+    </div>`;
+  });
+  html += `<button class="iconbtn" onclick="aiEditorAdd()">+ Zin toevoegen</button>
+    <div style="margin-top:1.5rem;display:flex;gap:.6rem">
+      <button id="aiEditorSaveBtn" class="nextbtn" onclick="aiEditorSave()">💾 Wijzigingen opslaan</button>
+      <button class="iconbtn" onclick="aiEditorClose()">Sluiten</button>
+    </div>`;
+  root.innerHTML = html;
 }
 
 /* ---------- login ---------- */

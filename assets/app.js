@@ -442,8 +442,7 @@ async function deleteAIReeks(id){
      inschatting — test 1x live af en geef door of het geheel iets te kort of te lang
      uitvalt op papier, dan stel ik deze tabel in één regel bij.
 */
-const WERKBLAD_BUDGET = { '*': 12, '**': 7, '***': 5 }; // totaal aantal oefeningen per sectie, NIET meer bovenop elkaar opgeteld met de letter-onthullingsoefeningen (die vallen hier gewoon binnen) — samen dus 24 op het hele werkblad; voorzichtig weer een stap omhoog t.o.v. 20, in afwachting van bevestiging hoeveel er écht op 1 pagina past
-const WERKBLAD_SPLIT  = 17; // hoeveel oefeningen (over alle secties heen) op pagina 1; de rest naar pagina 2 — opgetrokken t.o.v. 12, want daar bleef nog duidelijk ruimte over op pagina 1
+const WERKBLAD_BUDGET = { '*': 15, '**': 8, '***': 8 }; // totaal aantal oefeningen per sectie (letter-hint-oefeningen tellen hierbinnen mee, niet erbovenop) — samen 31 op het hele werkblad, zoals expliciet gevraagd. De verdeling over de 2 pagina's gebeurt niet langer door dit blindelings te knippen, maar door de browser zelf natuurlijk te laten pagineren (zie buildWerkbladPaginasHTML) — dat is de eigenlijke fix voor de herhaalde 3-4-paginaproblemen.
 
 /* Een gewone shuffle() geeft elke keer een andere volgorde (prima voor een
    digitale oefenreeks, die mag/moet variëren). Voor het werkblad willen we
@@ -499,7 +498,7 @@ function bouwLetterBank(woord, seed){
 // * = meeste letters al gegeven (makkelijkst), *** = minste (moeilijkst) — zoals gevraagd
 const LETTERHINT_PERCENTAGE = { '*': 25, '**': 20, '***': 15 };
 // hoeveel van de oefeningen van een niveau de letter-hint-vorm krijgen (i.p.v. een gewone open leemte) — dit valt BINNEN het totaal hierboven, niet erbovenop
-const LETTERHINT_COUNT = { '*': 2, '**': 2, '***': 1 };
+const LETTERHINT_COUNT = { '*': 3, '**': 3, '***': 3 };
 
 
 /* Verzamelt, voor één specifiek niveau (dus NIET cumulatief), een eerlijk
@@ -632,8 +631,6 @@ const WERKBLAD_STYLE = `
   @page { size: A4; margin: 16mm; }
   body { margin:0; }
   .werkblad { font-family: Arial, Helvetica, sans-serif; color:#161616; font-size:14.5px; line-height:1.6; }
-  .werkblad-pagina { page-break-after: always; }
-  .werkblad-pagina:last-child { page-break-after: auto; }
   .werkblad-header { display:flex; align-items:center; justify-content:space-between; gap:1.2rem; border-bottom:3px solid #222; padding-bottom:12px; margin-bottom:18px; }
   .werkblad-header img { height:58px; }
   .werkblad-veldjes { font-size:14.5px; line-height:2.1; text-align:left; }
@@ -675,10 +672,6 @@ function openInPrintVenster(titel, lichaamHTML){
 let werkbladCtx = null; // { source, srcId, backAction, titel, secties, volgorde: [{lvl, item}] }
 
 function buildWerkbladPaginasHTML(titel, volgorde){
-  const splitAt = Math.min(WERKBLAD_SPLIT, volgorde.length);
-  const pagina1 = volgorde.slice(0, splitAt);
-  const pagina2 = volgorde.slice(splitAt);
-
   const headerHTML = `
     <div class="werkblad-header">
       <img src="assets/STA_logo.png" alt="Logo Sint-Theresia">
@@ -689,39 +682,38 @@ function buildWerkbladPaginasHTML(titel, volgorde){
       <img src="assets/MELK-logo.png" alt="Logo MELK">
     </div>`;
 
-  // Elke pagina toont doorlopend genummerde oefeningen; telkens wanneer het
-  // niveau wisselt (bv. van ★ naar ★★) komt er een nieuwe sectietitel, ook al
-  // loopt diezelfde sectie gewoon door van pagina 1 naar pagina 2. De
-  // gehusseld-woord-oefeningen zitten gewoon tussen de andere items van hun
-  // niveau in (ze zijn immers al aan de juiste sectie toegevoegd).
-  function buildPaginaHTML(rijen, offsetGlobal){
-    let html = '';
-    let huidigNiveau = null;
-    let buffer = [];
-    let nr = offsetGlobal + 1;
-    const flush = ()=>{
-      if(buffer.length){ html += `<ol class="oefeningen">${renderWerkbladItemsHTML(buffer, nr)}</ol>`; nr += buffer.length; buffer = []; }
-    };
-    rijen.forEach(({lvl,item})=>{
-      if(lvl!==huidigNiveau){
-        flush();
-        huidigNiveau = lvl;
-        html += `<div class="sectietitel">Oefeningen ${lvl}</div>`;
-      }
-      buffer.push(item);
-    });
-    flush();
-    return html;
-  }
+  // BELANGRIJK: we knippen de inhoud NIET meer zelf op in "pagina 1" en
+  // "pagina 2" op basis van een geraden aantal oefeningen — dat bleek keer op
+  // keer fout te gokken (soms te veel lege ruimte, soms een geforceerde knip
+  // die zelf een overloop naar een 3de pagina veroorzaakte). In plaats daarvan
+  // laten we ALLES gewoon natuurlijk doorlopen in één stroom; de browser zelf
+  // berekent exact waar een pagina vol is (iets wat ik hier niet kan nabootsen)
+  // en breekt daar automatisch af. "break-inside:avoid" op elke oefening (zie
+  // WERKBLAD_STYLE) zorgt er wel voor dat een oefening nooit halverwege
+  // afgebroken wordt — de browser schuift zo'n oefening dan gewoon in zijn
+  // geheel naar de volgende pagina.
+  let html = '';
+  let huidigNiveau = null;
+  let buffer = [];
+  let nr = 1;
+  const flush = ()=>{
+    if(buffer.length){ html += `<ol class="oefeningen">${renderWerkbladItemsHTML(buffer, nr)}</ol>`; nr += buffer.length; buffer = []; }
+  };
+  volgorde.forEach(({lvl,item})=>{
+    if(lvl!==huidigNiveau){
+      flush();
+      huidigNiveau = lvl;
+      html += `<div class="sectietitel">Oefeningen ${lvl}</div>`;
+    }
+    buffer.push(item);
+  });
+  flush();
 
   return `<div class="werkblad">
-      <div class="werkblad-pagina">
-        ${headerHTML}
-        <h1>${escHtml(titel)}</h1>
-        <h2>Werkblad — vul zelf in wat gevraagd wordt. Bij een rijtje streepjes staan al enkele letters van het woord gegeven — vul de ontbrekende letters aan.</h2>
-        ${buildPaginaHTML(pagina1, 0)}
-      </div>
-      ${pagina2.length ? `<div class="werkblad-pagina">${buildPaginaHTML(pagina2, pagina1.length)}</div>` : ''}
+      ${headerHTML}
+      <h1>${escHtml(titel)}</h1>
+      <h2>Werkblad — vul zelf in wat gevraagd wordt. Bij een rijtje streepjes staan al enkele letters van het woord gegeven — vul de ontbrekende letters aan.</h2>
+      ${html}
     </div>`;
 }
 

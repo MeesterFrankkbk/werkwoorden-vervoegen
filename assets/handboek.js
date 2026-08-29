@@ -507,5 +507,44 @@ const HANDBOEK_DATA = {
       {zin:"Mijn grootouders emigreerden naar Spanje.", antwoord:"Mijn grootouders zijn naar Spanje geëmigreerd."},
       {zin:"In de lessen STEM experimenteerden wij met drones.", antwoord:"In de lessen STEM hebben wij met drones geëxperimenteerd."}
     ]
+  },
+  "TK060806": {
+    tense: "allin",
+    titel: "Nog niet klaar met werken (TK060806)",
+    /* niveau *: tt/vt door elkaar typen (cirkel, oefening 2) */
+    persoonsvorm: [
+      {prompt:"(drijven, t.t.) Het schip ... op de oceaan.", answer:"drijft", level:"*"},
+      {prompt:"(dromen, v.t.) De zangeres ... over ruimtewezens.", answer:"droomde", level:"*"},
+      {prompt:"(landen, v.t.) Het ruimteschip ... in een tarweveld.", answer:"landde", level:"*"},
+      {prompt:"(geloven, t.t.) ... jij dat ruimtewezens echt bestaan?", answer:"Geloof", level:"*"},
+      {prompt:"(lezen, t.t.) ... je kleine broer veel boeken over ruimtevaart?", answer:"Leest", level:"*"},
+      {prompt:"(bestellen, v.t.) De zangeres ... een lekkere cocktail.", answer:"bestelde", level:"*"},
+      {prompt:"(beleven, v.t.) Wij ... spannende avonturen.", answer:"beleefden", level:"*"},
+      {prompt:"(branden, t.t.) Het licht ... nog in de klas.", answer:"brandt", level:"*"},
+      /* niveau **: nog meer tt/vt door elkaar (vierkant, oefening 3) */
+      {prompt:"(reizen, v.t.) ... jij al een keer naar Azië?", answer:"Reisde", level:"**"},
+      {prompt:"(onthouden, t.t.) Waarom ... jij die formule niet?", answer:"onthoud", level:"**"},
+      {prompt:"(verwachten, v.t.) De manager ... een antwoord van de zangeres.", answer:"verwachtte", level:"**"},
+      {prompt:"(verkleden, t.t.) De goochelaar ... zich niet zo graag.", answer:"verkleedt", level:"**"},
+      {prompt:"(bevrijden, v.t.) Ik ... gisteren een vogeltje uit het net.", answer:"bevrijdde", level:"**"},
+      {prompt:"(verbranden, v.t.) De kleuter ... zijn vingers aan de kachel.", answer:"verbrandde", level:"**"},
+      {prompt:"(verplichten, t.t.) Mijn ouders ... mij om een fietshelm te dragen.", answer:"verplichten", level:"**"},
+      {prompt:"(besteden, t.t.) ... jij veel tijd aan je schoolwerk?", answer:"Besteed", level:"**"},
+      {prompt:"(verwoesten, v.t.) De orkaan ... het kustdorp.", answer:"verwoestte", level:"**"},
+      {prompt:"(belanden, v.t.) Wij ... gisteren op de verkeerde trein.", answer:"belandden", level:"**"},
+      {prompt:"(vinden, v.t.) De professor ... een verklaring voor het fenomeen.", answer:"vond", level:"**"},
+      {prompt:"(racen, t.t.) De mountainbiker ... met zijn fiets door het bos.", answer:"racet", level:"**"}
+    ],
+    /* niveau ** én ***: AI-gecontroleerde schrijfopdrachten (oefening 4 = vierkant, oefening 5 = driehoek) */
+    vrijetekst: [
+      {
+        level: "**",
+        opdracht: "Kies een onderwerp (bv. de ruimtewezens, de zangeres, de piloot, de manager, de commissaris, de professor) en een werkwoord (bv. organiseren, ontdekken, landen, vertrekken, playbacken, beantwoorden). Schrijf 3 grappige zinnen in de tegenwoordige tijd en 3 in de verleden tijd."
+      },
+      {
+        level: "***",
+        opdracht: "Je wilt meer weten over het ruimtewezen in de kamer van zangeres Lala. Je hebt een interview van haar afgenomen. Schrijf een kort krantenartikel (minstens 4 zinnen), met persoonsvormen in zowel de tegenwoordige als de verleden tijd."
+      }
+    ]
   }
 };

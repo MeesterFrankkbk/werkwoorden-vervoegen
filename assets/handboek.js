@@ -411,5 +411,58 @@ const HANDBOEK_DATA = {
       {prompt:"(drinken, v.d.) Wie heeft er van die wijn ...?", answer:"gedronken", level:"***"},
       {prompt:"(raden, t.t.) ... jij de oplossing van dat raadsel?", answer:"Raad", level:"***"}
     ]
+  },
+  "TK060705": {
+    tense: "allin",
+    titel: "Hulpverleners zijn harde werkers (TK060705)",
+    /* niveau *: juiste werkwoordsvorm kiezen (cirkel, oefening 2) */
+    fillin: [
+      {level:"*", prefix:"De arbeiders", suffix:"vorige maand twee waterputten.", answer:"boorden", options:["boren","boorden","boordden"]},
+      {level:"*", prefix:"De chauffeurs", suffix:"volgende week nieuwe voedselpakketten.", answer:"brengen", options:["brengen","brengden","brachten"]},
+      {level:"*", prefix:"De man", suffix:"de vrachtwagen en reed weg.", answer:"startte", options:["start","starte","startte"]},
+      {level:"*", prefix:"Mijn ouders", suffix:"maandelijks een bedrag voor Unicef.", answer:"storten", options:["storten","stortten","stort"]},
+      {level:"*", prefix:"De hulpverlener", suffix:"mijn vraag via mail.", answer:"beantwoordt", options:["beantwoordt","beantwoord","beantwoordde"]}
+    ],
+    /* niveau **: tt en vt door elkaar typen (vierkant, oefening 3 en 4) */
+    persoonsvorm: [
+      {prompt:"(organiseren, t.t.) Ik ... een feest.", answer:"organiseer", level:"**"},
+      {prompt:"(organiseren, v.t.) Hij ... een feest.", answer:"organiseerde", level:"**"},
+      {prompt:"(arresteren, t.t.) Jij ... de dief.", answer:"arresteert", level:"**"},
+      {prompt:"(arresteren, v.t.) Ik ... de dief.", answer:"arresteerde", level:"**"},
+      {prompt:"(fotograferen, t.t.) Hij ... de zonsondergang.", answer:"fotografeert", level:"**"},
+      {prompt:"(fotograferen, v.t.) Jij ... de zonsondergang.", answer:"fotografeerde", level:"**"},
+      {prompt:"(dicteren, t.t.) De juf ... een tekst.", answer:"dicteert", level:"**"},
+      {prompt:"(dicteren, v.t.) Ik ... een tekst.", answer:"dicteerde", level:"**"},
+      {prompt:"(fantaseren, t.t.) Ik ... over de vakantie.", answer:"fantaseer", level:"**"},
+      {prompt:"(fantaseren, v.t.) Jij ... over de vakantie.", answer:"fantaseerde", level:"**"},
+      {prompt:"(verbieden, t.t.) Hij ... praten tijdens de les.", answer:"verbiedt", level:"**"},
+      {prompt:"(verbieden, v.t.) Hij ... praten tijdens de les.", answer:"verbood", level:"**"},
+      {prompt:"(oplossen, t.t.) Jij ... het probleem op.", answer:"lost", level:"**"},
+      {prompt:"(oplossen, v.t.) Ik ... het probleem op.", answer:"loste", level:"**"},
+      {prompt:"(bezoeken, v.t.) Youssef ... zijn beste vriend Daan.", answer:"bezocht", level:"**"},
+      {prompt:"(ontvangen, v.t.) De ouders van zijn vriend ... hem met open armen.", answer:"ontvingen", level:"**"},
+      {prompt:"(leiden, v.t.) De mensen ... hem rond in hun woning.", answer:"leidden", level:"**"},
+      {prompt:"(schrikken, v.t.) Youssef ... van de thuissituatie van zijn vriend.", answer:"schrok", level:"**"},
+      {prompt:"(leven, v.t.) Hij wist niet dat hij in armoede ...", answer:"leefde", level:"**"},
+      {prompt:"(vertellen, v.t.) De mensen ... dat ze vorig jaar alles kwijtraakten.", answer:"vertelden", level:"**"},
+      {prompt:"(branden, v.t.) Hun huis ... af en was volledig vernield.", answer:"brandde", level:"**"},
+      {prompt:"(organiseren, t.t.) Youssef ... een benefiet voor de familie van zijn vriend.", answer:"organiseert", level:"**"},
+      {prompt:"(verzenden, t.t.) Hij ... een aantal mails naar kennissen van zijn eigen ouders.", answer:"verzendt", level:"**"},
+      {prompt:"(reageren, t.t.) Mensen ... massaal op zijn oproep.", answer:"reageren", level:"**"},
+      {prompt:"(aanbieden, t.t.) Een meubelmaker ... een mooi stapelbed aan.", answer:"biedt", level:"**"},
+      {prompt:"(verkiezen, t.t.) De plaatselijke bakker ... om hen dagelijks een brood te schenken.", answer:"verkiest", level:"**"},
+      {prompt:"(wassen, v.t.) Youssef zelf ... auto's.", answer:"waste", level:"**"},
+      {prompt:"(verdienen, v.t.) Daarmee ... hij wel honderd euro.", answer:"verdiende", level:"**"},
+      {prompt:"(kopen, v.t.) Met het geld ... hij wat gezelschapsspellen.", answer:"kocht", level:"**"}
+    ],
+    /* niveau ***: woorden herschikken tot een correcte zin, met vervoegd werkwoord (driehoek, oefening 5) */
+    zinvtLabel: "Zet de woorden in de juiste volgorde tot een goede zin, en vervoeg het werkwoord correct:",
+    zinvtLevel: "***",
+    zinvt: [
+      {zin:"Mechelen – hoofdzetel – zich – bevinden – in – de – Vlaanderen – Kruis – Rode – van", antwoord:"De hoofdzetel van Rode Kruis Vlaanderen bevindt zich in Mechelen."},
+      {zin:"centrum – vorige – brengen – we – bezoek – het – aan – week – een", antwoord:"Vorige week brachten we een bezoek aan het centrum."},
+      {zin:"takenpakket – organisatie – ontdekken – van – meer – we – over – deze – het", antwoord:"We ontdekten meer over het takenpakket van deze organisatie."},
+      {zin:"vrijwilliger – ik – later – Kruis – worden – Rode – bij – ook – het", antwoord:"Later word ik ook vrijwilliger bij het Rode Kruis."}
+    ]
   }
 };

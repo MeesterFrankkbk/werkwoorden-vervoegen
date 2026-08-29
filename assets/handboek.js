@@ -127,5 +127,70 @@ const HANDBOEK_DATA = {
     vrijetekst: {
       opdracht: "Stel je in de plaats van de hobbykok, net terug van een mooie reis. Schrijf een kort verslag over je reis, in de verleden tijd (minstens 3 zinnen)."
     }
+  },
+  "TK060305": {
+    tense: "vt",
+    titel: "Gisteren was het ook leuk (TK060305)",
+    /* niveau *: verleden tijd enkelvoud EN meervoud typen (cirkel, oefening 2) */
+    persoonsvorm: [
+      {prompt:"(bestellen) Ik ... een pizza.", answer:"bestelde", level:"*"},
+      {prompt:"(bestellen) Wij ... twee pizza's.", answer:"bestelden", level:"*"},
+      {prompt:"(redden) De brandweerman ... de kat.", answer:"redde", level:"*"},
+      {prompt:"(redden) De brandweermannen ... de katten.", answer:"redden", level:"*"},
+      {prompt:"(ontmoeten) Ik ... mijn vriend.", answer:"ontmoette", level:"*"},
+      {prompt:"(ontmoeten) Wij ... onze vrienden.", answer:"ontmoetten", level:"*"},
+      {prompt:"(beseffen) Hij ... zijn fout.", answer:"besefte", level:"*"},
+      {prompt:"(beseffen) De leerlingen ... hun fout.", answer:"beseften", level:"*"},
+      /* niveau **: getypte verleden tijd in context (vierkant, oefening 3) */
+      {prompt:"(verdienen) De jongen ... een beter resultaat.", answer:"verdiende", level:"**"},
+      {prompt:"(bezoeken) Vorig jaar ... wij Rome.", answer:"bezochten", level:"**"},
+      {prompt:"(verhuren) De lieve man ... geen fietsen.", answer:"verhuurde", level:"**"},
+      {prompt:"(verdiepen) Onze meester ... zich in de geschiedenis van België.", answer:"verdiepte", level:"**"},
+      {prompt:"(surfen) ... jullie al naar die website?", answer:"Surften", level:"**"},
+      {prompt:"(antwoorden) Het meisje ... niet op mijn vraag.", answer:"antwoordde", level:"**"},
+      {prompt:"(verdwijnen) In onze klas ... drie pennenzakken.", answer:"verdwenen", level:"**"},
+      {prompt:"(verzetten) De misdadiger ... zich tegen zijn aanhouding.", answer:"verzette", level:"**"},
+      {prompt:"(hoesten) Ik ... de hele nacht.", answer:"hoestte", level:"**"},
+      {prompt:"(lezen) Tijdens de les drama ... wij onze teksten hardop.", answer:"lazen", level:"**"},
+      {prompt:"(bereiden) Opa ... een lekker maaltijd.", answer:"bereidde", level:"**"},
+      {prompt:"(ontmoeten) Ik ... mijn favoriete auteur in de bibliotheek.", answer:"ontmoette", level:"**"},
+      {prompt:"(maken) De dreumes ... zich gauw uit de voeten.", answer:"maakte", level:"**"},
+      {prompt:"(zwemmen) De Belgische ploeg ... een recordtijd.", answer:"zwom", level:"**"},
+      {prompt:"(beloven) Wij ... om geen ruzie meer te maken.", answer:"beloofden", level:"**"}
+    ],
+    /* niveau *: herkennen of het werkwoord van klank verandert in de verleden tijd (cirkel) */
+    identify: [
+      {level:"*", prompt:"verdienen", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"verdienen → verdiende"},
+      {level:"*", prompt:"bezoeken", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"bezoeken → bezochten"},
+      {level:"*", prompt:"verhuren", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"verhuren → verhuurde"},
+      {level:"*", prompt:"verdiepen", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"verdiepen → verdiepte"},
+      {level:"*", prompt:"surfen", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"surfen → surften"},
+      {level:"*", prompt:"antwoorden", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"antwoorden → antwoordde"},
+      {level:"*", prompt:"verdwijnen", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"verdwijnen → verdwenen"},
+      {level:"*", prompt:"verzetten", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"verzetten → verzette"},
+      {level:"*", prompt:"hoesten", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"hoesten → hoestte"},
+      {level:"*", prompt:"lezen", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"lezen → lazen"},
+      {level:"*", prompt:"bereiden", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"bereiden → bereidde"},
+      {level:"*", prompt:"ontmoeten", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"ontmoeten → ontmoette"},
+      {level:"*", prompt:"maken", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"maken → maakte"},
+      {level:"*", prompt:"zwemmen", options:["Verandert van klank","Verandert niet van klank"], correctIndex:0, extraInfo:"zwemmen → zwom"},
+      {level:"*", prompt:"beloven", options:["Verandert van klank","Verandert niet van klank"], correctIndex:1, extraInfo:"beloven → beloofde"}
+    ],
+    /* niveau **: hele zin herschrijven naar de verleden tijd (vierkant, oefening 4 "Kraak de code") */
+    zinvt: [
+      {zin:"Jonas lacht met de moppen op het kalenderblaadje.", antwoord:"Jonas lachte met de moppen op het kalenderblaadje."},
+      {zin:"Hij neemt de fles melk uit de koelkast.", antwoord:"Hij nam de fles melk uit de koelkast."},
+      {zin:"Leen kaart het probleem aan.", antwoord:"Leen kaartte het probleem aan."},
+      {zin:"Grootvader vertelt een verhaal uit zijn kindertijd.", antwoord:"Grootvader vertelde een verhaal uit zijn kindertijd."},
+      {zin:"Joshua krijgt een voetbalshirt voor zijn verjaardag.", antwoord:"Joshua kreeg een voetbalshirt voor zijn verjaardag."},
+      {zin:"Kleine Broes maakt een zandkasteel op het strand.", antwoord:"Kleine Broes maakte een zandkasteel op het strand."},
+      {zin:"Moeder laat een briefje achter op de eettafel.", antwoord:"Moeder liet een briefje achter op de eettafel."},
+      {zin:"Oma spit de tuin om.", antwoord:"Oma spitte de tuin om."},
+      {zin:"Ricardo antwoordt op de vraag.", antwoord:"Ricardo antwoordde op de vraag."}
+    ],
+    /* niveau ***: AI-gecontroleerd — kies onderwerpen + werkwoorden, maak zinnen in de verleden tijd (driehoek, oefening 5) */
+    vrijetekst: {
+      opdracht: "Kies drie van deze onderwerpen: de jongens, de juf, de agent, mijn ouders, de buschauffeur, de meisjes van de klas, haar buurmeisje. Maak voor elk een goede zin in de verleden tijd, met een werkwoord uit deze lijst: snijden, gamen, chatten, antwoorden, rijden, kopen, verhuizen."
+    }
   }
 };

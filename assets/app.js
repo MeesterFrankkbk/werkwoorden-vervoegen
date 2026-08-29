@@ -443,7 +443,7 @@ async function deleteAIReeks(id){
      uitvalt op papier, dan stel ik deze tabel in één regel bij.
 */
 const WERKBLAD_BUDGET = { '*': 12, '**': 7, '***': 5 }; // totaal aantal oefeningen per sectie, NIET meer bovenop elkaar opgeteld met de letter-onthullingsoefeningen (die vallen hier gewoon binnen) — samen dus 24 op het hele werkblad; voorzichtig weer een stap omhoog t.o.v. 20, in afwachting van bevestiging hoeveel er écht op 1 pagina past
-const WERKBLAD_SPLIT  = 12; // hoeveel oefeningen (over alle secties heen) op pagina 1; de rest naar pagina 2
+const WERKBLAD_SPLIT  = 17; // hoeveel oefeningen (over alle secties heen) op pagina 1; de rest naar pagina 2 — opgetrokken t.o.v. 12, want daar bleef nog duidelijk ruimte over op pagina 1
 
 /* Een gewone shuffle() geeft elke keer een andere volgorde (prima voor een
    digitale oefenreeks, die mag/moet variëren). Voor het werkblad willen we
@@ -472,11 +472,10 @@ function seededShuffle(arr, seed){
   return a;
 }
 /* Onthult een vast PERCENTAGE van de letters van het (correcte!) antwoord —
-   nooit een foute spelling, en (anders dan het eerdere "husselen"-idee) ook
-   geen infinitief die toevallig al mee de oplossing verklapt: de leerling ziet
-   enkel een rij streepjes met daartussen een paar al ingevulde letters, net
-   als bij een galgje-achtig woordraadsel. Hoe hoger het niveau, hoe minder
-   letters al gegeven worden (★ = meeste hulp, ★★★ = minste). */
+   nooit een foute spelling — enkel een rij streepjes met daartussen een paar
+   al ingevulde letters, net als bij een galgje-achtig woordraadsel. Hoe hoger
+   het niveau, hoe minder letters al gegeven worden (★ = meeste hulp, ★★★ =
+   minste). */
 function bouwLetterHint(woord, percentage, seed){
   const rng = mulberry32(seed);
   const n = woord.length;
@@ -485,6 +484,17 @@ function bouwLetterHint(woord, percentage, seed){
   for(let i=indices.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [indices[i],indices[j]]=[indices[j],indices[i]]; }
   const onthuldSet = new Set(indices.slice(0, aantalOnthullen));
   return woord.split('').map((ch,i)=> onthuldSet.has(i) ? ch : null); // null = leerling moet deze letter zelf schrijven
+}
+/* De volledige letterbank: ALLE letters van het antwoord, door elkaar, als
+   los te lezen letters tussen haakjes vóór de zin (bv. "(t o r a d n o w)").
+   Dit vervangt de infinitief-hint bij deze oefening: de leerling weet zo
+   precies welke letters (en hoeveel) nodig zijn, zonder dat de vorm zelf of
+   het werkwoord zomaar gegeven wordt. */
+function bouwLetterBank(woord, seed){
+  const rng = mulberry32(seed);
+  const letters = woord.split('');
+  for(let i=letters.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [letters[i],letters[j]]=[letters[j],letters[i]]; }
+  return letters;
 }
 // * = meeste letters al gegeven (makkelijkst), *** = minste (moeilijkst) — zoals gevraagd
 const LETTERHINT_PERCENTAGE = { '*': 25, '**': 20, '***': 15 };
@@ -580,8 +590,9 @@ async function gatherWerkbladSecties(source, srcId){
     const gekozenKeys = new Set(gekozen.map(it=>it.prompt+'|'+it.answer));
     perNiveau[lvl].Z = perNiveau[lvl].Z.filter(it=> !gekozenKeys.has(it.prompt+'|'+it.answer));
     gehusseldPerNiveau[lvl] = gekozen.map((it,j)=>({
-      prompt: it.prompt,
+      prompt: it.prompt.replace(/^\([^)]*\)\s*/, ''), // infinitief-hint eraf: die vervangen we door de letterbank
       answer: it.answer,
+      letterbank: bouwLetterBank(it.answer, seedBasis + 650 + i*50 + j),
       letterhint: bouwLetterHint(it.answer, LETTERHINT_PERCENTAGE[lvl], seedBasis + 700 + i*50 + j)
     }));
   });
@@ -607,8 +618,9 @@ function renderWerkbladItemsHTML(items, startNr){
       const rij = `<span class="letterhint">${it.letterhint.map(ch=> ch===null
         ? `<span class="letterbox"></span>`
         : `<span class="letterbox onthuld">${escHtml(ch)}</span>`).join('')}</span>`;
+      const bank = `<span class="letterbank">(${it.letterbank.map(ch=>escHtml(ch)).join(' ')})</span>`;
       const opgave = escHtml(it.prompt).replace(/\.\.\./, rij);
-      return `<li class="oefening" value="${nr}"><span class="opgave">${opgave}</span></li>`;
+      return `<li class="oefening" value="${nr}"><span class="opgave">${bank} ${opgave}</span></li>`;
     }
     const opgave = escHtml(it.prompt).replace(/\.\.\./, '<span class="leemte"></span>');
     return `<li class="oefening" value="${nr}"><span class="opgave">${opgave}</span></li>`;
@@ -638,6 +650,7 @@ const WERKBLAD_STYLE = `
   .sectietitel:first-of-type { margin-top:4px; }
   .letterhint { display:inline-flex; gap:3px; vertical-align:middle; }
   .letterbox { display:inline-block; min-width:1em; padding:0 2px; text-align:center; border-bottom:1.5px solid #333; font-weight:bold; }
+  .letterbank { font-weight:bold; letter-spacing:2px; color:#333; }
   .letterbox.onthuld { color:#333; }
 </style>`;
 

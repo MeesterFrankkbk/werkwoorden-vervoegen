@@ -37,6 +37,14 @@ function speakForce(text){
     window.speechSynthesis.speak(u);
   }catch(e){}
 }
+/* Stopt onmiddellijk elk lopend voorlezen (bv. bij doorklikken naar de volgende
+   oefening of bij het verlaten van een reeks), zodat de stem nooit blijft
+   doorpraten over een scherm dat niet meer klopt. */
+function stopSpeech(){
+  if(window.speechSynthesis){
+    try{ window.speechSynthesis.cancel(); }catch(e){}
+  }
+}
 function mkUtterance(t){
   const u = new SpeechSynthesisUtterance(t);
   if(state.voice) u.voice = state.voice;
@@ -501,6 +509,7 @@ const topicMeta = {
   geenpv: {emoji:'🧩', desc:'Voltooid deelwoord of bijvoeglijk naamwoord: gewerkt, gespeeld, gelopen.'},
 };
 function renderHome(){
+  stopSpeech();
   const cards = Object.keys(WERKWOORDEN_DATA).map(key=>{
     const t = WERKWOORDEN_DATA[key];
     const m = topicMeta[key];
@@ -524,6 +533,7 @@ function renderHome(){
 
 /* ---------- topic (kies reeks) ---------- */
 function renderTopic(key){
+  stopSpeech();
   const t = WERKWOORDEN_DATA[key];
   const handboekReeksen = Object.keys(HANDBOEK_DATA).filter(code => HANDBOEK_DATA[code].tense === key);
   const handboekBtns = handboekReeksen.map(code=>`<span>
@@ -667,7 +677,7 @@ function renderStep(){
     inner = renderBrontekst(step.data);
   }
   root.innerHTML = `
-    <button class="backbtn" onclick="${run.backAction}">← Stoppen</button>
+    <button class="backbtn" onclick="stopSpeech();${run.backAction}">← Stoppen</button>
     ${progressHTML()}
     <div class="exercise-box" style="border-color:${run.color}">${inner}</div>`;
   if(step.type==='written' || step.type==='dictee' || step.type==='stam' || step.type==='vrijezin' || step.type==='zinvt'){
@@ -677,6 +687,7 @@ function renderStep(){
 }
 
 function nextStep(){
+  stopSpeech();
   run.i++;
   if(run.i >= run.seq.length) run.i = run.seq.length-1;
   renderStep();
@@ -1043,6 +1054,7 @@ function getTenseInfo(tense){
   return { title: t.title, color: t.color, backAction:`renderTopic('${tense}')` };
 }
 function renderHandboekNiveau(code){
+  stopSpeech();
   const lesData = HANDBOEK_DATA[code];
   const t = getTenseInfo(lesData.tense);
   const desc = lvl => {
@@ -1108,11 +1120,73 @@ function startHandboekRun(code, level){
 }
 function renderBrontekst(data){
   window._brontekstText = data.tekst;
+  const hasOpdracht = data.targets && data.targets.length>0;
+  let bodyHtml;
+  if(hasOpdracht){
+    // Tekst opsplitsen in woorden + tussenliggende witruimte, zodat de opmaak
+    // (spaties, regeleinden) exact behouden blijft terwijl elk woord apart
+    // aanklikbaar wordt.
+    const rawTokens = data.tekst.split(/(\s+)/);
+    const remaining = new Map();
+    data.targets.forEach(t=>{
+      const key = t.toLowerCase();
+      remaining.set(key, (remaining.get(key)||0)+1);
+    });
+    const tokens = rawTokens.map(tok=>{
+      if(/^\s*$/.test(tok)) return { ws:true, raw: tok };
+      const clean = tok.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '').toLowerCase();
+      return { ws:false, raw: tok, clean };
+    });
+    run._bt = { tokens, remaining, found:new Set(), total:data.targets.length, foundCount:0 };
+    const wordsHtml = tokens.map((tok,i)=>{
+      if(tok.ws) return tok.raw;
+      return `<span class="bt-word" id="btw${i}" onclick="clickBrontekstWord(${i})" style="cursor:pointer;padding:1px 3px;border-radius:5px;transition:background .2s,color .2s">${tok.raw}</span>`;
+    }).join('');
+    bodyHtml = `<p style="line-height:1.9">${wordsHtml}</p>
+      <p id="btStatus" style="font-weight:700;color:#7c3aed;margin-top:.8rem">${data.opdracht||'Klik op de juiste woorden.'} Nog <span id="btCount">${data.targets.length}</span> te vinden.</p>`;
+  } else {
+    bodyHtml = `<p style="line-height:1.7">${data.tekst}</p>`;
+  }
   return `<span class="level-badge" style="background:#eef;color:#334">Tekst</span>
     <h3>${data.titel}</h3>
-    <p style="line-height:1.7">${data.tekst}</p>
-    <button class="iconbtn" onclick="speakForce(window._brontekstText)">🔊 Lees voor</button>
+    ${bodyHtml}
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
+      <button class="iconbtn" onclick="speakForce(window._brontekstText)">🔊 Lees voor</button>
+      <button class="iconbtn" onclick="stopSpeech()">⏹️ Stop voorlezen</button>
+    </div>
     <br><button class="nextbtn" style="margin-top:1rem" onclick="nextStep()">Verder ▶</button>`;
+}
+function clickBrontekstWord(i){
+  if(!run || !run._bt) return;
+  const tok = run._bt.tokens[i];
+  if(!tok || tok.ws) return;
+  if(run._bt.found.has(i)) return;
+  const el = document.getElementById('btw'+i);
+  const rem = run._bt.remaining.get(tok.clean) || 0;
+  if(rem > 0){
+    run._bt.remaining.set(tok.clean, rem-1);
+    run._bt.found.add(i);
+    run._bt.foundCount++;
+    if(el){
+      el.style.background = '#dcfce7';
+      el.style.color = '#166534';
+      el.style.fontWeight = '700';
+      el.style.cursor = 'default';
+      el.onclick = null;
+    }
+    const countEl = document.getElementById('btCount');
+    const remainingTotal = run._bt.total - run._bt.foundCount;
+    if(countEl) countEl.textContent = remainingTotal;
+    if(remainingTotal===0){
+      const status = document.getElementById('btStatus');
+      if(status) status.innerHTML = '✅ Je hebt ze allemaal gevonden! Knap gedaan.';
+      speak('Je hebt ze allemaal gevonden! Knap gedaan.');
+    }
+  } else if(el){
+    el.style.background = '#fee2e2';
+    el.style.color = '#991b1b';
+    setTimeout(()=>{ if(el && !run._bt.found.has(i)){ el.style.background=''; el.style.color=''; } }, 500);
+  }
 }
 function renderStam(data){
   run.total++;
@@ -1271,6 +1345,7 @@ async function checkVrijeTekst(){
   }
 }
 function renderAllInNiveau(){
+  stopSpeech();
   const handboekReeksen = Object.keys(HANDBOEK_DATA).filter(code => HANDBOEK_DATA[code].tense === 'allin');
   const handboekBtns = handboekReeksen.map(code=>`<span>
         <button class="bigbtn" style="background:#7c3aed" onclick="renderHandboekNiveau('${code}')">${reeksNaam('hb_'+code,'1')}</button>

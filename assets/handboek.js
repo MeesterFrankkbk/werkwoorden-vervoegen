@@ -232,5 +232,37 @@ const HANDBOEK_DATA = {
     vrijetekst: {
       opdracht: "Schrijf een kort informatief tekstje (minstens 3 zinnen) over één van deze onderwerpen: hiërogliefen, Ramses, Tongeren, Egypte of piramide. Gebruik minstens twee voltooide deelwoorden (bv. gebouwd, ontdekt, gevonden)."
     }
+  },
+  "TK060405": {
+    tense: "allin",
+    titel: "Woordenwerk (TK060405)",
+    /* niveau *: herkennen (cirkel, oefening 2 — is dit een persoonsvorm? welk geval?) */
+    identify: [
+      {level:"*", plain:true, prompt:"In Egypte <u>staan</u> veel piramides. Welk geval is dit?", options:["Tegenwoordige tijd","Verleden tijd","Geen persoonsvorm"], correctIndex:0},
+      {level:"*", plain:true, prompt:"Wij <u>maken</u> elk jaar een reis. Welk geval is dit?", options:["Tegenwoordige tijd","Verleden tijd","Geen persoonsvorm"], correctIndex:0},
+      {level:"*", plain:true, prompt:"Setne <u>hoorde</u> dat er een toverboek zou bestaan. Welk geval is dit?", options:["Tegenwoordige tijd","Verleden tijd","Geen persoonsvorm"], correctIndex:1},
+      {level:"*", plain:true, prompt:"De tekst werd <u>teruggevonden</u> op papyrusrollen. Welk geval is dit?", options:["Tegenwoordige tijd","Verleden tijd","Geen persoonsvorm"], correctIndex:2},
+      {level:"*", plain:true, prompt:"Het is <u>gebaseerd</u> op een echt gebeurd verhaal. Welk geval is dit?", options:["Tegenwoordige tijd","Verleden tijd","Geen persoonsvorm"], correctIndex:2},
+      {level:"*", plain:true, prompt:"Hij <u>vond</u> de graftombe. Welk geval is dit?", options:["Tegenwoordige tijd","Verleden tijd","Geen persoonsvorm"], correctIndex:1}
+    ],
+    /* niveau **: getypte vorm in context, tt/vt/vd door elkaar (vierkant, oefening 3) */
+    persoonsvorm: [
+      {prompt:"(mogen, t.t.) Met de doden ... je niet lachen.", answer:"mag", level:"**"},
+      {prompt:"(blijken, t.t.) Dat ... uit het verhaal van Setne.", answer:"blijkt", level:"**"},
+      {prompt:"(baseren, v.d.) Het is ... op een echt gebeurd verhaal.", answer:"gebaseerd", level:"**"},
+      {prompt:"(gebeuren, v.d.) Het is gebaseerd op een echt ... verhaal.", answer:"gebeurd", level:"**"},
+      {prompt:"(worden, v.t.) De tekst ... teruggevonden op papyrusrollen.", answer:"werd", level:"**"},
+      {prompt:"(terugvinden, v.d.) De tekst werd ... op papyrusrollen.", answer:"teruggevonden", level:"**"},
+      {prompt:"(horen, v.t.) Setne ... dat er een toverboek zou bestaan.", answer:"hoorde", level:"**"},
+      {prompt:"(vertellen, v.t.) Men ... hem dat het boek in een graftombe lag.", answer:"vertelde", level:"**"},
+      {prompt:"(verbergen, v.d.) Het boek lag ... in een graftombe van een prins.", answer:"verborgen", level:"**"},
+      {prompt:"(besluiten, v.t.) Setne ... dat hij het boek zou vinden.", answer:"besloot", level:"**"},
+      {prompt:"(vinden, v.t.) Hij ... de graftombe.", answer:"vond", level:"**"},
+      {prompt:"(breken, v.t.) Samen met zijn broer ... hij de grafkamer open.", answer:"brak", level:"**"}
+    ],
+    /* niveau ***: AI-gecontroleerd — verhaal afmaken met werkwoorden uit een lijst, in de verleden tijd (driehoek, oefening 5) */
+    vrijetekst: {
+      opdracht: "Schrijf drie zinnen die passen bij het verhaal van Setne, elk met een ander werkwoord uit deze lijst, vervoegd in de verleden tijd: weten, vragen, moeten, proberen, luisteren, verliezen, houden, geven, zien, pakken, beginnen, brengen, zijn."
+    }
   }
 };

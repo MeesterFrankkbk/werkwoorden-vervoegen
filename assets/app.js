@@ -207,7 +207,7 @@ function renderTeacherPanel(){
     const reeksen = ['1','2'].map(s=>`
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .8rem;border:2px solid var(--line);border-radius:10px;margin-top:.4rem">
         <span><b>${reeksNaam(key,s)}</b> <span style="color:#888;font-size:.85rem">(oorspronkelijk: Reeks ${s})</span></span>
-        <button class="renamebtn" onclick="hernoemReeks('${key}','${s}')">✏️ Hernoemen</button>
+        <span><button class="renamebtn" onclick="hernoemReeks('${key}','${s}')">✏️ Hernoemen</button> <button class="renamebtn" onclick="openReeksEditor('${key}','${s}')">🛠️ Oefeningen bewerken</button></span>
       </div>`).join('');
     return `<div class="card topic-${key}" style="cursor:default">
       <h2>${t.title}</h2>
@@ -221,11 +221,30 @@ function renderTeacherPanel(){
       <div style="padding:.5rem .8rem;border:2px solid var(--line);border-radius:10px;margin-top:.4rem">★★ 20 herkennen + 10 dictee (30 zinnen)</div>
       <div style="padding:.5rem .8rem;border:2px solid var(--line);border-radius:10px;margin-top:.4rem">★★★ 25 herkennen + 15 dictee (40 zinnen)</div>
     </div>`;
+  const tenseGroupNames = {tt:'Tegenwoordige tijd', vt:'Verleden tijd', geenpv:'Geen persoonsvorm', allin:'All-in'};
+  const handboekByTense = {};
+  Object.keys(HANDBOEK_DATA).forEach(code=>{
+    const tense = HANDBOEK_DATA[code].tense;
+    (handboekByTense[tense] = handboekByTense[tense] || []).push(code);
+  });
+  const handboekRows = Object.keys(handboekByTense).sort().map(tense=>{
+    const items = handboekByTense[tense].sort().map(code=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .8rem;border:2px solid var(--line);border-radius:10px;margin-top:.4rem">
+        <span><b>${reeksNaam('hb_'+code,'1')}</b> <span style="color:#888;font-size:.85rem">(${code})</span></span>
+        <span><button class="renamebtn" onclick="hernoemReeks('hb_${code}','1')">✏️ Hernoemen</button> <button class="renamebtn" onclick="openHandboekEditor('${code}')">🛠️ Oefeningen bewerken</button></span>
+      </div>`).join('');
+    return `<div class="card" style="cursor:default">
+      <h2>📘 ${tenseGroupNames[tense] || tense}</h2>
+      ${items}
+    </div>`;
+  }).join('');
   root.innerHTML = `
     <button class="backbtn" onclick="renderHome()">← Terug</button>
     <h2>⚙️ Meester Frank — beheerpaneel</h2>
-    <p>Hier kan je de naam van elke reeks aanpassen.</p>
+    <p>Hier kan je de naam van elke reeks aanpassen, en via "🛠️ Oefeningen bewerken" ook de inhoud zelf.</p>
     <div class="grid">${rows}${allInCard}</div>
+    <h2 style="margin-top:2rem">📘 Handboeklessen (TK...)</h2>
+    <div class="grid">${handboekRows}</div>
     <h2 style="margin-top:2rem">🤖 AI-oefeningen maken</h2>
     <p>Geef één of meer werkwoorden op, kies de tijd en het niveau, en laat de AI passende invulzinnen bedenken. Je kan ze meteen met de leerlingen starten (voor deze sessie) of als JSON kopiëren om door te sturen zodat ze permanent aan de app toegevoegd worden.</p>
     <div id="aiPanel"></div>`;

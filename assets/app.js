@@ -1071,10 +1071,11 @@ function startHandboekRun(code, level){
   renderStep();
 }
 function renderBrontekst(data){
+  window._brontekstText = data.tekst;
   return `<span class="level-badge" style="background:#eef;color:#334">Tekst</span>
     <h3>${data.titel}</h3>
     <p style="line-height:1.7">${data.tekst}</p>
-    <button class="iconbtn" onclick="speakForce(${JSON.stringify(data.tekst)})">🔊 Lees voor</button>
+    <button class="iconbtn" onclick="speakForce(window._brontekstText)">🔊 Lees voor</button>
     <br><button class="nextbtn" style="margin-top:1rem" onclick="nextStep()">Verder ▶</button>`;
 }
 function renderStam(data){

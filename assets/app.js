@@ -1050,13 +1050,15 @@ function renderHandboekNiveau(code){
       if((lesData.fillin||[]).some(it=>it.level==='*')) parts.push('juiste vorm kiezen');
       if((lesData.persoonsvorm||[]).some(it=>(it.level||'*')==='*')) parts.push('persoonsvorm invullen');
     } else if(lvl==='**'){
-      if(lesData.fillin) parts.push('zinnen aanvullen');
+      if((lesData.fillin||[]).some(it=>(it.level||'**')==='**')) parts.push('zinnen aanvullen');
       if((lesData.persoonsvorm||[]).some(it=>it.level==='**')) parts.push('verleden tijd invullen');
-      if(lesData.zinvt) parts.push('hele zin herschrijven');
+      if(lesData.zinvt && (lesData.zinvtLevel||'**')==='**') parts.push('hele zin herschrijven');
     } else {
+      if((lesData.persoonsvorm||[]).some(it=>it.level==='***')) parts.push('extra pittige vragen');
+      if(lesData.zinvt && lesData.zinvtLevel==='***') parts.push('hele zin herschrijven');
       if(lesData.vrijezin) parts.push('zelf zinnen schrijven');
       if(lesData.vrijetekst) parts.push('kort verslag schrijven');
-      parts.push('AI-gecontroleerd');
+      if(lesData.vrijezin || lesData.vrijetekst) parts.push('AI-gecontroleerd');
     }
     return parts.join(' + ') || 'oefeningen';
   };
@@ -1089,7 +1091,7 @@ function startHandboekRun(code, level){
   shuffle((lesData.persoonsvorm||[]).filter(it=>order[it.level||'*']<=cap)).forEach(it=> seq.push({type:'written', data:it}));
   if(lesData.stam && lesData.stam.length>=3) seq.push({type:'match', data: lesData.stam.map(it=>({subject:it.infinitief, form:it.antwoord}))});
   shuffle((lesData.fillin||[]).filter(it=>order[it.level||'**']<=cap)).forEach(it=> seq.push({type:'fillin', data:{...it, level: it.level||'**'}}));
-  if(cap>=2) shuffle((lesData.zinvt||[]).map(it=>({...it, label: it.label||lesData.zinvtLabel}))).forEach(it=> seq.push({type:'zinvt', data:it}));
+  if(cap>=order[lesData.zinvtLevel||'**']) shuffle((lesData.zinvt||[]).map(it=>({...it, label: it.label||lesData.zinvtLabel}))).forEach(it=> seq.push({type:'zinvt', data:it}));
   if(cap>=3) shuffle([...(lesData.vrijezin||[])]).forEach(it=> seq.push({type:'vrijezin', data:it}));
   if(cap>=3 && lesData.vrijetekst) seq.push({type:'vrijetekst', data:lesData.vrijetekst});
   seq.push({type:'end'});

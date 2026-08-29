@@ -469,8 +469,8 @@ function seededShuffle(arr, seed){
      inschatting — test 1x live af en geef door of het geheel iets te kort of te lang
      uitvalt op papier, dan stel ik deze tabel in één regel bij.
 */
-const WERKBLAD_BUDGET = { '*': 6, '**': 5, '***': 5 }; // aantal oefeningen per sectie (niet cumulatief, samen dus 16 op het hele werkblad)
-const WERKBLAD_SPLIT  = 7; // hoeveel oefeningen (over alle secties heen) op pagina 1; de rest naar pagina 2
+const WERKBLAD_BUDGET = { '*': 10, '**': 9, '***': 8 }; // aantal oefeningen per sectie (niet cumulatief, samen dus tot 27 op het hele werkblad)
+const WERKBLAD_SPLIT  = 12; // hoeveel oefeningen (over alle secties heen) op pagina 1; de rest naar pagina 2
 
 /* Een gewone shuffle() geeft elke keer een andere volgorde (prima voor een
    digitale oefenreeks, die mag/moet variëren). Voor het werkblad willen we
@@ -580,44 +580,48 @@ function renderWerkbladItemsHTML(items, startNr){
 
 const WERKBLAD_STYLE = `
 <style>
-  @page { size: A4; margin: 14mm; }
-  @media print {
-    body * { visibility: hidden; }
-    .werkblad, .werkblad * { visibility: visible; }
-    .werkblad { position: absolute; top:0; left:0; width:100%; }
-    .no-print { display:none !important; }
-  }
-  .werkblad { font-family: Arial, Helvetica, sans-serif; color:#111; font-size:14px; line-height:1.5; }
+  @page { size: A4; margin: 16mm; }
+  body { margin:0; }
+  .werkblad { font-family: Arial, Helvetica, sans-serif; color:#161616; font-size:14.5px; line-height:1.6; }
   .werkblad-pagina { page-break-after: always; }
   .werkblad-pagina:last-child { page-break-after: auto; }
-  .werkblad-header { display:flex; align-items:center; justify-content:space-between; gap:1rem; border-bottom:2px solid #333; padding-bottom:10px; margin-bottom:14px; }
-  .werkblad-header img { height:55px; }
-  .werkblad-veldjes { font-size:14px; line-height:2; text-align:left; }
-  .werkblad-veldjes .lijn { display:inline-block; border-bottom:1px solid #333; min-width:150px; }
-  .werkblad h1 { font-size:18px; margin:0 0 4px 0; }
-  .werkblad h2 { font-size:14px; color:#555; margin:0 0 14px 0; font-weight:normal; }
-  .werkblad .oefeningen { padding-left:22px; margin:0; }
-  .oefening { break-inside: avoid; page-break-inside: avoid; margin-bottom:14px; }
+  .werkblad-header { display:flex; align-items:center; justify-content:space-between; gap:1.2rem; border-bottom:3px solid #222; padding-bottom:12px; margin-bottom:18px; }
+  .werkblad-header img { height:58px; }
+  .werkblad-veldjes { font-size:14.5px; line-height:2.1; text-align:left; }
+  .werkblad-veldjes .lijn { display:inline-block; border-bottom:1px solid #333; min-width:160px; }
+  .werkblad h1 { font-size:20px; margin:0 0 4px 0; }
+  .werkblad h2 { font-size:13.5px; color:#666; margin:0 0 16px 0; font-weight:normal; font-style:italic; }
+  .werkblad .oefeningen { padding-left:24px; margin:0 0 8px 0; }
+  .oefening { break-inside: avoid; page-break-inside: avoid; margin-bottom:16px; }
   .opgave { }
-  .leemte { display:inline-block; border-bottom:1.5px solid #333; min-width:90px; height:1em; vertical-align:middle; }
+  .leemte { display:inline-block; border-bottom:1.5px solid #333; min-width:100px; height:1.1em; vertical-align:middle; }
   .mc-opties { color:#333; }
-  .mc-optie { border:1.5px solid #999; border-radius:12px; padding:1px 10px; display:inline-block; margin-top:3px; }
-  .sectietitel { font-weight:bold; font-size:15px; margin:10px 0 4px 0; break-after:avoid; page-break-after:avoid; }
+  .mc-optie { border:1.5px solid #999; border-radius:12px; padding:2px 12px; display:inline-block; margin-top:4px; margin-right:4px; }
+  .sectietitel { font-weight:bold; font-size:15.5px; margin:14px 0 8px 0; padding:4px 10px; background:#f0f0f0; border-left:5px solid #333; break-after:avoid; page-break-after:avoid; }
+  .sectietitel:first-of-type { margin-top:4px; }
 </style>`;
+
+/* We printen NIET met window.print() op het scherm dat in de app zelf te zien
+   is: een SPA-scherm bevat ook de rest van de applicatie, en het "enkel dit
+   blok tonen"-trucje (visibility:hidden op de rest) bleek bij het opslaan als
+   PDF niet betrouwbaar samen te werken met de pagina-afbreking — dat gaf een
+   povere, half-lege afdruk met alles opeengepakt op 1 pagina. In plaats
+   daarvan openen we een volledig LOS, leeg venster met daarin uitsluitend het
+   werkblad (of de correctiesleutel) als een op zichzelf staand HTML-document.
+   Dat pagineert veel voorspelbaarder, want er is niets anders op de pagina om
+   mee te interfereren. */
+function openInPrintVenster(titel, lichaamHTML){
+  const w = window.open('', '_blank');
+  if(!w){ alert('Kon geen nieuw venster openen. Sta pop-ups toe voor deze site en probeer opnieuw.'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escHtml(titel)}</title>${WERKBLAD_STYLE}</head><body>${lichaamHTML}</body></html>`);
+  w.document.close();
+  w.onload = () => { w.focus(); w.print(); };
+  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 400); // vangnet als onload niet vuurt
+}
 
 let werkbladCtx = null; // { source, srcId, backAction, titel, secties, volgorde: [{lvl, item}] }
 
-async function renderWerkbladPreview(source, srcId, backAction){
-  if(!state.teacherMode) return;
-  stopSpeech();
-  root.innerHTML = `<p class="no-print">Werkblad wordt klaargemaakt...</p>`;
-  const { titel, secties } = await gatherWerkbladSecties(source, srcId);
-  // doorlopende lijst van {lvl, item}, in de vaste volgorde ★ -> ★★ -> ★★★,
-  // dit is exact wat er op de 2 pagina's komt (en dus ook in de correctiesleutel)
-  const volgorde = [];
-  ['*','**','***'].forEach(lvl=> secties[lvl].forEach(item=> volgorde.push({lvl, item})));
-  werkbladCtx = { source, srcId, backAction, titel, secties, volgorde };
-
+function buildWerkbladPaginasHTML(titel, volgorde){
   const splitAt = Math.min(WERKBLAD_SPLIT, volgorde.length);
   const pagina1 = volgorde.slice(0, splitAt);
   const pagina2 = volgorde.slice(splitAt);
@@ -655,14 +659,7 @@ async function renderWerkbladPreview(source, srcId, backAction){
     return html;
   }
 
-  root.innerHTML = `
-    ${WERKBLAD_STYLE}
-    <div class="no-print" style="margin-bottom:1rem;display:flex;gap:.6rem;flex-wrap:wrap">
-      <button class="backbtn" onclick="werkbladCtx=null;${backAction}">← Terug</button>
-      <button class="nextbtn" onclick="window.print()">🖨️ Print werkblad (2 pagina's)</button>
-      <button class="iconbtn" onclick="renderCorrectiesleutel()">🔑 Correctiesleutel bekijken/printen</button>
-    </div>
-    <div class="werkblad">
+  return `<div class="werkblad">
       <div class="werkblad-pagina">
         ${headerHTML}
         <h1>${escHtml(titel)}</h1>
@@ -671,6 +668,29 @@ async function renderWerkbladPreview(source, srcId, backAction){
       </div>
       ${pagina2.length ? `<div class="werkblad-pagina">${buildPaginaHTML(pagina2, pagina1.length)}</div>` : ''}
     </div>`;
+}
+
+async function renderWerkbladPreview(source, srcId, backAction){
+  if(!state.teacherMode) return;
+  stopSpeech();
+  root.innerHTML = `<p class="no-print">Werkblad wordt klaargemaakt...</p>`;
+  const { titel, secties } = await gatherWerkbladSecties(source, srcId);
+  // doorlopende lijst van {lvl, item}, in de vaste volgorde ★ -> ★★ -> ★★★,
+  // dit is exact wat er op de 2 pagina's komt (en dus ook in de correctiesleutel)
+  const volgorde = [];
+  ['*','**','***'].forEach(lvl=> secties[lvl].forEach(item=> volgorde.push({lvl, item})));
+  werkbladCtx = { source, srcId, backAction, titel, secties, volgorde };
+
+  const werkbladHTML = buildWerkbladPaginasHTML(titel, volgorde);
+  root.innerHTML = `
+    <button class="backbtn" onclick="werkbladCtx=null;${backAction}">← Terug</button>
+    <div style="margin:1rem 0;display:flex;gap:.6rem;flex-wrap:wrap">
+      <button class="nextbtn" onclick="openInPrintVenster(werkbladCtx.titel, buildWerkbladPaginasHTML(werkbladCtx.titel, werkbladCtx.volgorde))">🖨️ Print werkblad (2 pagina's, in nieuw venster)</button>
+      <button class="iconbtn" onclick="renderCorrectiesleutel()">🔑 Correctiesleutel bekijken/printen</button>
+    </div>
+    <p style="color:#777;font-size:.85rem">Onderstaand is een voorbeeldweergave. Gebruik de knop hierboven om écht af te drukken — dat opent een apart, opgekuist venster dat betrouwbaarder pagineert.</p>
+    ${WERKBLAD_STYLE}
+    ${werkbladHTML}`;
 }
 
 function renderCorrectiesleutel(){
@@ -685,20 +705,18 @@ function renderCorrectiesleutel(){
       ${items.map(item=>`<li>${escHtml(item.options ? item.correct : item.answer)}</li>`).join('')}
     </ol>`;
   });
+  const sleutelHTML = `<div class="werkblad"><div class="werkblad-pagina">
+      <h1>🔑 Correctiesleutel — ${escHtml(d.titel)}</h1>
+      <h2>Enkel voor de leerkracht — niet uitdelen aan leerlingen.</h2>
+      ${html}
+    </div></div>`;
   root.innerHTML = `
-    ${WERKBLAD_STYLE}
-    <div class="no-print" style="margin-bottom:1rem;display:flex;gap:.6rem">
-      <button class="backbtn" onclick="renderWerkbladPreview(werkbladCtx.source, werkbladCtx.srcId, werkbladCtx.backAction)">← Terug naar het werkblad</button>
-      <button class="nextbtn" onclick="window.print()">🖨️ Print correctiesleutel</button>
+    <button class="backbtn" onclick="renderWerkbladPreview(werkbladCtx.source, werkbladCtx.srcId, werkbladCtx.backAction)">← Terug naar het werkblad</button>
+    <div style="margin:1rem 0">
+      <button class="nextbtn" onclick="openInPrintVenster('Correctiesleutel — '+werkbladCtx.titel, document.getElementById('sleutelInhoud').innerHTML)">🖨️ Print correctiesleutel (in nieuw venster)</button>
     </div>
-    <div class="werkblad">
-      <div class="werkblad-pagina">
-        <h1>🔑 Correctiesleutel — ${escHtml(d.titel)}</h1>
-        <h2>Enkel voor de leerkracht — niet uitdelen aan leerlingen.</h2>
-
-        ${html}
-      </div>
-    </div>`;
+    ${WERKBLAD_STYLE}
+    <div id="sleutelInhoud">${sleutelHTML}</div>`;
 }
 
 function renderAIReeksNiveau(id){

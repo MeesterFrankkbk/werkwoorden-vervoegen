@@ -15,7 +15,9 @@ const HANDBOEK_DATA = {
     titel: "Woorden die werken (TK060106)",
     brontekst: {
       titel: "Het gewicht van euro's",
-      tekst: "Je wilt 100 euro in een portemonnee steken en die informatie aan een vriend meedelen. Zo hoeft hij niet te tellen als je hem de portemonnee geeft. Je schrijft gewoon het getal 100 op de portemonnee. Je noemt dat digitale informatie. Je kunt het ook wat moeilijker maken. Je weegt 1 euro en je leest 7,5 gram op de weegschaal. Dat moet je ook aan je vriend vertellen. Hij leest 750 gram op zijn weegschaal en hij weet nu dat je beurs 100 euro bevat."
+      tekst: "Je wilt 100 euro in een portemonnee steken en die informatie aan een vriend meedelen. Zo hoeft hij niet te tellen als je hem de portemonnee geeft. Je schrijft gewoon het getal 100 op de portemonnee. Je noemt dat digitale informatie. Je kunt het ook wat moeilijker maken. Je weegt 1 euro en je leest 7,5 gram op de weegschaal. Dat moet je ook aan je vriend vertellen. Hij leest 750 gram op zijn weegschaal en hij weet nu dat je beurs 100 euro bevat.",
+      opdracht: "Klik op alle persoonsvormen in de tegenwoordige tijd.",
+      targets: ["wilt","hoeft","geeft","schrijft","noemt","kunt","weegt","leest","moet","leest","weet","bevat"]
     },
     stam: [
       {infinitief:"spelen", antwoord:"speel"},
@@ -70,7 +72,9 @@ const HANDBOEK_DATA = {
     titel: "Keuze van de jury (TK060304)",
     brontekst: {
       titel: "De beste hobbykok",
-      tekst: "Beste hobbykok, een tijdje geleden nam u deel aan onze wedstrijd. Volgens onze jury was u de terechte winnaar van onze wedstrijd. De jury gaf u 58 punten. Vorig jaar boden we de winnaar een reis voor twee personen aan. De winnaar werd uitgenodigd en ontving zijn prijs uit handen van de burgemeester van onze stad. De regionale zender zond hierover een mooie reportage uit. Ook dit jaar kozen we ervoor om de winnaar een reis te schenken. We schreven u al een brief met alle nodige informatie. Met vriendelijke groeten, de jury"
+      tekst: "Beste hobbykok, een tijdje geleden nam u deel aan onze wedstrijd. Volgens onze jury was u de terechte winnaar van onze wedstrijd. De jury gaf u 58 punten. Vorig jaar boden we de winnaar een reis voor twee personen aan. De winnaar werd uitgenodigd en ontving zijn prijs uit handen van de burgemeester van onze stad. De regionale zender zond hierover een mooie reportage uit. Ook dit jaar kozen we ervoor om de winnaar een reis te schenken. We schreven u al een brief met alle nodige informatie. Met vriendelijke groeten, de jury",
+      opdracht: "Klik op alle persoonsvormen in de verleden tijd.",
+      targets: ["nam","was","gaf","boden","werd","ontving","zond","kozen","schreven"]
     },
     /* niveau *: herkennen of een werkwoord van klank verandert in de verleden tijd (cirkel) */
     identify: [
@@ -198,7 +202,9 @@ const HANDBOEK_DATA = {
     titel: "In de voetsporen van Ramses (TK060404)",
     brontekst: {
       titel: "Hiërogliefen ... rare tekens?",
-      tekst: "De hiërogliefen werden vroeger gebruikt bij de Egyptenaren. De stenen muren van de tempels werden versierd met hiërogliefen. In de hiërogliefen zijn woorden of klanken uitgebeeld. De Egyptische hiërogliefen werden lange tijd als onvertaalbare tekens beschouwd. De laatste hiërogliefen werden geschreven in de vierde eeuw, toen de laatste Egyptische tempel door de Romeinen werd gesloten. De kennis van de hiërogliefen ging verloren. In 1822 heeft de Fransman Champollion de tekens als eerste ontcijferd."
+      tekst: "De hiërogliefen werden vroeger gebruikt bij de Egyptenaren. De stenen muren van de tempels werden versierd met hiërogliefen. In de hiërogliefen zijn woorden of klanken uitgebeeld. De Egyptische hiërogliefen werden lange tijd als onvertaalbare tekens beschouwd. De laatste hiërogliefen werden geschreven in de vierde eeuw, toen de laatste Egyptische tempel door de Romeinen werd gesloten. De kennis van de hiërogliefen ging verloren. In 1822 heeft de Fransman Champollion de tekens als eerste ontcijferd.",
+      opdracht: "Klik op alle voltooide deelwoorden.",
+      targets: ["gebruikt","versierd","uitgebeeld","beschouwd","geschreven","gesloten","verloren","ontcijferd"]
     },
     /* niveau *: welke spellingstrategie hoort bij dit voltooid deelwoord? (cirkel, oefening 2) */
     identify: [
@@ -969,7 +975,9 @@ const HANDBOEK_DATA = {
     titel: "Een avondje griezelen (TK050603)",
     brontekst: {
       titel: "Een avondje griezelen",
-      tekst: "Stach verhuist met zijn familie vanuit de stad naar een eenzaam eiland aan de Belgische kust. Al bij aankomst voelt Stach dat er een groot gevaar dreigt. De eilandbewoners negeren de nieuwkomers. Ze weigeren hun vragen te beantwoorden. Op de avond van Halloween zit Stach gezellig alleen voor de televisie. Hij hoort een vreemd, krassend geluid aan de voordeur ..."
+      tekst: "Stach verhuist met zijn familie vanuit de stad naar een eenzaam eiland aan de Belgische kust. Al bij aankomst voelt Stach dat er een groot gevaar dreigt. De eilandbewoners negeren de nieuwkomers. Ze weigeren hun vragen te beantwoorden. Op de avond van Halloween zit Stach gezellig alleen voor de televisie. Hij hoort een vreemd, krassend geluid aan de voordeur ...",
+      opdracht: "Klik op alle persoonsvormen in de tegenwoordige tijd.",
+      targets: ["verhuist","voelt","dreigt","negeren","weigeren","zit","hoort"]
     },
     persoonsvorm: [
       {prompt:"(verhuizen) Stach ... met zijn familie vanuit de stad naar een eenzaam eiland.", answer:"verhuist", level:"*"},

@@ -527,12 +527,14 @@ function kiesVoorNiveau(deelA, deelZinnen, deelStam, budget, seedBasis){
 async function gatherWerkbladSecties(source, srcId){
   const cleanPrompt = (t)=> (t||'').replace(/^\d+\)\s*/, '').trim();
   let titel = '';
+  let tense = '';
   // per niveau een eigen, NIET-cumulatieve pool (dus enkel items die exact dat niveau dragen)
   const perNiveau = { '*': {A:[],Z:[],S:[]}, '**': {A:[],Z:[],S:[]}, '***': {A:[],Z:[],S:[]} };
 
   if(source==='handboek'){
     const d = await getLesData(srcId);
     titel = (d.titel||'').replace(/\s*\(TK\d+\)\s*$/, '');
+    tense = d.tense;
     (d.identify||[]).filter(it=>!it.plain && perNiveau[it.level]).forEach(it=>
       perNiveau[it.level].A.push({ prompt: cleanPrompt(it.prompt), options: it.options, correct: it.options[it.correctIndex] }));
     (d.persoonsvorm||[]).forEach(it=>{ const lvl = it.level||'*'; if(perNiveau[lvl]) perNiveau[lvl].Z.push({ prompt: cleanPrompt(it.prompt), answer: it.answer }); });
@@ -551,6 +553,7 @@ async function gatherWerkbladSecties(source, srcId){
     const t = WERKWOORDEN_DATA[srcId.key];
     const s = await getSet(srcId.key, srcId.setNum);
     titel = t.title + ' — ' + reeksNaam(srcId.key, srcId.setNum);
+    tense = srcId.key;
     (s.identify||[]).filter(it=>perNiveau[it.level]).forEach(it=>
       perNiveau[it.level].A.push({ prompt: cleanPrompt(it.prompt), options: it.options, correct: it.options[it.correctIndex] }));
     (s.fillin||[]).filter(it=>perNiveau[it.level]).forEach(it=>
@@ -559,6 +562,7 @@ async function gatherWerkbladSecties(source, srcId){
   } else if(source==='ai'){
     const item = loadAIReeksen().find(r=>r.id===srcId);
     titel = '✨ ' + item.naam;
+    tense = item.tense;
     item.exercises.forEach(ex=>{
       const lvl = ex.level||'*';
       if(perNiveau[lvl]) perNiveau[lvl].Z.push({ prompt: `${ex.prefix||''} ... ${ex.suffix||''}`.trim(), answer: ex.answer });
@@ -582,8 +586,8 @@ async function gatherWerkbladSecties(source, srcId){
     const gewenst = LETTERHINT_COUNT[lvl];
     if(gewenst<=0) return;
     const kandidaten = seededShuffle(perNiveau[lvl].Z.filter(it=>
-      it.answer && it.answer.length>=3 && !it.answer.includes(' ') && it.answer!=='(eigen antwoord)'
-      && it.prompt.replace('...','').trim().split(/\s+/).filter(Boolean).length>=4
+      it.answer && it.answer.length>=6 && !it.answer.includes(' ') && it.answer!=='(eigen antwoord)'
+      && it.prompt.replace('...','').trim().split(/\s+/).filter(Boolean).length>=2
     ), seedBasis + 500 + i);
     const gekozen = kandidaten.slice(0, gewenst);
     const gekozenKeys = new Set(gekozen.map(it=>it.prompt+'|'+it.answer));
@@ -603,7 +607,7 @@ async function gatherWerkbladSecties(source, srcId){
     secties[lvl] = [...kiesVoorNiveau(p.A, p.Z, p.S, budgetOverGewoon, seedBasis + i*100), ...gehusseldPerNiveau[lvl]];
   });
 
-  return { titel, secties };
+  return { titel, tense, secties };
 }
 
 function renderWerkbladItemsHTML(items, startNr){
@@ -637,6 +641,7 @@ const WERKBLAD_STYLE = `
   .werkblad-veldjes .lijn { display:inline-block; border-bottom:1px solid #333; min-width:160px; }
   .werkblad h1 { font-size:20px; margin:0 0 4px 0; }
   .werkblad h2 { font-size:13.5px; color:#666; margin:0 0 16px 0; font-weight:normal; font-style:italic; }
+  .tensebadge { display:inline-block; background:#333; color:#fff; font-size:12.5px; font-weight:bold; padding:2px 12px; border-radius:12px; margin:2px 0 10px 0; }
   .werkblad .oefeningen { padding-left:24px; margin:0 0 8px 0; }
   .oefening { break-inside: avoid; page-break-inside: avoid; margin-bottom:16px; }
   .opgave { }
@@ -671,7 +676,9 @@ function openInPrintVenster(titel, lichaamHTML){
 
 let werkbladCtx = null; // { source, srcId, backAction, titel, secties, volgorde: [{lvl, item}] }
 
-function buildWerkbladPaginasHTML(titel, volgorde){
+const TENSE_NAAM = { tt:'Tegenwoordige tijd', vt:'Verleden tijd', geenpv:'Geen persoonsvorm (voltooid deelwoord)', allin:'All-in' };
+
+function buildWerkbladPaginasHTML(titel, tense, volgorde){
   const headerHTML = `
     <div class="werkblad-header">
       <img src="assets/STA_logo.png" alt="Logo Sint-Theresia">
@@ -712,7 +719,8 @@ function buildWerkbladPaginasHTML(titel, volgorde){
   return `<div class="werkblad">
       ${headerHTML}
       <h1>${escHtml(titel)}</h1>
-      <h2>Werkblad — vul zelf in wat gevraagd wordt. Bij een rijtje streepjes staan al enkele letters van het woord gegeven — vul de ontbrekende letters aan.</h2>
+      <p class="tensebadge">${TENSE_NAAM[tense] || tense}</p>
+      <h2>Werkblad — vul zelf in wat gevraagd wordt. Bij een rijtje streepjes staan al enkele letters van het woord gegeven — vul de ontbrekende letters aan.<br>Dit werkblad kan 2 bladzijden beslaan — vergeet de ommezijde niet!</h2>
       ${html}
     </div>`;
 }
@@ -721,18 +729,18 @@ async function renderWerkbladPreview(source, srcId, backAction){
   if(!state.teacherMode) return;
   stopSpeech();
   root.innerHTML = `<p class="no-print">Werkblad wordt klaargemaakt...</p>`;
-  const { titel, secties } = await gatherWerkbladSecties(source, srcId);
+  const { titel, tense, secties } = await gatherWerkbladSecties(source, srcId);
   // doorlopende lijst van {lvl, item}, in de vaste volgorde ★ -> ★★ -> ★★★,
   // dit is exact wat er op de 2 pagina's komt (en dus ook in de correctiesleutel)
   const volgorde = [];
   ['*','**','***'].forEach(lvl=> secties[lvl].forEach(item=> volgorde.push({lvl, item})));
-  werkbladCtx = { source, srcId, backAction, titel, secties, volgorde };
+  werkbladCtx = { source, srcId, backAction, titel, tense, secties, volgorde };
 
-  const werkbladHTML = buildWerkbladPaginasHTML(titel, volgorde);
+  const werkbladHTML = buildWerkbladPaginasHTML(titel, tense, volgorde);
   root.innerHTML = `
     <button class="backbtn" onclick="werkbladCtx=null;${backAction}">← Terug</button>
     <div style="margin:1rem 0;display:flex;gap:.6rem;flex-wrap:wrap">
-      <button class="nextbtn" onclick="openInPrintVenster(werkbladCtx.titel, buildWerkbladPaginasHTML(werkbladCtx.titel, werkbladCtx.volgorde))">🖨️ Print werkblad (2 pagina's, in nieuw venster)</button>
+      <button class="nextbtn" onclick="openInPrintVenster(werkbladCtx.titel, buildWerkbladPaginasHTML(werkbladCtx.titel, werkbladCtx.tense, werkbladCtx.volgorde))">🖨️ Print werkblad (2 pagina's, in nieuw venster)</button>
       <button class="iconbtn" onclick="renderCorrectiesleutel()">🔑 Correctiesleutel bekijken/printen</button>
     </div>
     <p style="color:#777;font-size:.85rem">Onderstaand is een voorbeeldweergave. Gebruik de knop hierboven om écht af te drukken — dat opent een apart, opgekuist venster dat betrouwbaarder pagineert.</p>
@@ -754,6 +762,7 @@ function renderCorrectiesleutel(){
   });
   const sleutelHTML = `<div class="werkblad"><div class="werkblad-pagina">
       <h1>🔑 Correctiesleutel — ${escHtml(d.titel)}</h1>
+      <p class="tensebadge">${TENSE_NAAM[d.tense] || d.tense}</p>
       <h2>Enkel voor de leerkracht — niet uitdelen aan leerlingen.</h2>
       ${html}
     </div></div>`;

@@ -720,7 +720,7 @@ function buildWerkbladPaginasHTML(titel, tense, volgorde){
       ${headerHTML}
       <h1>${escHtml(titel)}</h1>
       <p class="tensebadge">${TENSE_NAAM[tense] || tense}</p>
-      <h2>Werkblad — vul zelf in wat gevraagd wordt. Bij een rijtje streepjes staan al enkele letters van het woord gegeven — vul de ontbrekende letters aan.<br>Dit werkblad kan 2 bladzijden beslaan — vergeet de ommezijde niet!</h2>
+      <h2>Werkblad — vul zelf in wat gevraagd wordt. Bij een rijtje streepjes staan al enkele letters van het woord gegeven, en tussen haakjes vind je alle letters van het woord (door elkaar) — gebruik ze om de ontbrekende letters aan te vullen.<br>Dit werkblad kan 2 bladzijden beslaan — vergeet de ommezijde niet!</h2>
       ${html}
     </div>`;
 }

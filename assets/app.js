@@ -540,14 +540,17 @@ async function gatherWerkbladSecties(source, srcId){
     (d.persoonsvorm||[]).forEach(it=>{ const lvl = it.level||'*'; if(perNiveau[lvl]) perNiveau[lvl].Z.push({ prompt: cleanPrompt(it.prompt), answer: it.answer }); });
     (d.fillin||[]).forEach(it=>{
       const lvl = it.level||'**'; // zelfde standaardwaarde als de echte oefeningen-motor gebruikt
-      if(perNiveau[lvl]) perNiveau[lvl].Z.push({ prompt: `${it.prefix} ... ${it.suffix}`.trim(), answer: it.answer });
+      // BELANGRIJK: de keuzemogelijkheden blijven behouden. Zonder die 3 opties
+      // (en zonder infinitief in de zin zelf) is er voor de leerling vaak geen
+      // enkel aanknopingspunt welk werkwoord er precies gevraagd wordt.
+      if(perNiveau[lvl]) perNiveau[lvl].Z.push({ prompt: `${it.prefix} ... ${it.suffix}`.trim(), answer: it.answer, keuzeopties: it.options });
     });
     // "stam" geldt in de digitale app als niveau *-materiaal -> enkel bij ★
     (d.stam||[]).forEach(it=>
       perNiveau['*'].S.push({ prompt: `Geef de stam van "${it.infinitief}".`, answer: it.antwoord }));
     if(d.vrijezin && d.vrijezin.length){
       const v = d.vrijezin[0];
-      perNiveau['***'].Z.push({ prompt: `Schrijf zelf een goede zin met het werkwoord "${v.infinitief}".`, answer: '(eigen antwoord)' });
+      perNiveau['***'].Z.push({ prompt: `Schrijf zelf een goede zin met het werkwoord "${v.infinitief}".`, answer: '(eigen antwoord)', schrijfruimte: true });
     }
   } else if(source==='reeks'){
     const t = WERKWOORDEN_DATA[srcId.key];
@@ -557,7 +560,7 @@ async function gatherWerkbladSecties(source, srcId){
     (s.identify||[]).filter(it=>perNiveau[it.level]).forEach(it=>
       perNiveau[it.level].A.push({ prompt: cleanPrompt(it.prompt), options: it.options, correct: it.options[it.correctIndex] }));
     (s.fillin||[]).filter(it=>perNiveau[it.level]).forEach(it=>
-      perNiveau[it.level].Z.push({ prompt: `${it.prefix} ... ${it.suffix}`.trim(), answer: it.answer }));
+      perNiveau[it.level].Z.push({ prompt: `${it.prefix} ... ${it.suffix}`.trim(), answer: it.answer, keuzeopties: it.options }));
     (s.written||[]).forEach(it=> perNiveau['***'].Z.push({ prompt: cleanPrompt(it.prompt), answer: it.answer }));
   } else if(source==='ai'){
     const item = loadAIReeksen().find(r=>r.id===srcId);
@@ -565,7 +568,7 @@ async function gatherWerkbladSecties(source, srcId){
     tense = item.tense;
     item.exercises.forEach(ex=>{
       const lvl = ex.level||'*';
-      if(perNiveau[lvl]) perNiveau[lvl].Z.push({ prompt: `${ex.prefix||''} ... ${ex.suffix||''}`.trim(), answer: ex.answer });
+      if(perNiveau[lvl]) perNiveau[lvl].Z.push({ prompt: `${ex.prefix||''} ... ${ex.suffix||''}`.trim(), answer: ex.answer, keuzeopties: ex.options });
     });
   }
 
@@ -600,11 +603,31 @@ async function gatherWerkbladSecties(source, srcId){
     }));
   });
 
+  // Als een niveau te weinig eigen materiaal heeft om zijn budget te vullen
+  // (zoals ★★★ bij lessen met weinig gevorderd materiaal), vullen we aan met
+  // wat er bij een LAGER niveau over is nadat dat zijn eigen keuze al maakte —
+  // beter een extra (iets te makkelijke) oefening dan een half-lege sectie.
+  const keyOf = it => (it.prompt||'') + '|' + (it.answer!==undefined ? it.answer : it.correct);
+  let leftoverPool = [];
   const secties = {};
   ['*','**','***'].forEach((lvl,i)=>{
     const p = perNiveau[lvl];
     const budgetOverGewoon = Math.max(0, WERKBLAD_BUDGET[lvl] - gehusseldPerNiveau[lvl].length);
-    secties[lvl] = [...kiesVoorNiveau(p.A, p.Z, p.S, budgetOverGewoon, seedBasis + i*100), ...gehusseldPerNiveau[lvl]];
+    const eigen = kiesVoorNiveau(p.A, p.Z, p.S, budgetOverGewoon, seedBasis + i*100);
+    const eigenKeys = new Set(eigen.map(keyOf));
+    const restVanDitNiveau = [...p.A, ...p.Z, ...p.S].filter(it=> !eigenKeys.has(keyOf(it)));
+
+    let aangevuld = eigen;
+    const tekort = budgetOverGewoon - eigen.length;
+    if(tekort > 0 && leftoverPool.length){
+      const geleend = seededShuffle(leftoverPool, seedBasis + 900 + i).slice(0, tekort);
+      const geleendKeys = new Set(geleend.map(keyOf));
+      leftoverPool = leftoverPool.filter(it=> !geleendKeys.has(keyOf(it)));
+      aangevuld = [...eigen, ...geleend];
+    }
+
+    secties[lvl] = [...aangevuld, ...gehusseldPerNiveau[lvl]];
+    leftoverPool = [...leftoverPool, ...restVanDitNiveau];
   });
 
   return { titel, tense, secties };
@@ -625,7 +648,15 @@ function renderWerkbladItemsHTML(items, startNr){
       const opgave = escHtml(it.prompt).replace(/\.\.\./, rij);
       return `<li class="oefening" value="${nr}"><span class="opgave">${bank} ${opgave}</span></li>`;
     }
+    if(it.schrijfruimte){
+      return `<li class="oefening" value="${nr}"><span class="opgave">${escHtml(it.prompt)}</span>
+        <div class="schrijflijn"></div><div class="schrijflijn"></div></li>`;
+    }
     const opgave = escHtml(it.prompt).replace(/\.\.\./, '<span class="leemte"></span>');
+    if(it.keuzeopties && it.keuzeopties.length){
+      return `<li class="oefening" value="${nr}"><span class="opgave">${opgave}</span><br>
+        <span class="mc-hint">kies uit: ${it.keuzeopties.map(o=>escHtml(o)).join(' – ')}</span></li>`;
+    }
     return `<li class="oefening" value="${nr}"><span class="opgave">${opgave}</span></li>`;
   }).join('');
 }
@@ -647,6 +678,8 @@ const WERKBLAD_STYLE = `
   .opgave { }
   .leemte { display:inline-block; border-bottom:1.5px solid #333; min-width:100px; height:1.1em; vertical-align:middle; }
   .mc-opties { color:#333; }
+  .mc-hint { color:#555; font-size:13px; font-style:italic; }
+  .schrijflijn { border-bottom:1.5px solid #333; height:1.8em; margin-top:6px; }
   .mc-optie { border:1.5px solid #999; border-radius:12px; padding:2px 12px; display:inline-block; margin-top:4px; margin-right:4px; }
   .sectietitel { font-weight:bold; font-size:15.5px; margin:14px 0 8px 0; padding:4px 10px; background:#f0f0f0; border-left:5px solid #333; break-after:avoid; page-break-after:avoid; }
   .sectietitel:first-of-type { margin-top:4px; }

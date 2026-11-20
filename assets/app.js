@@ -4,6 +4,25 @@ const levelColors = {'*':'#e8f5ee','**':'#eaf1ff','***':'#fff2e0'};
 const levelText = {'*':'#166534','**':'#1e40af','***':'#9a3412'};
 const TEACHER_PASSWORD = 'STA werkt!'; // centraal ingesteld wachtwoord voor Meester Frank
 
+/* MELK: aanmelden via MELK-start; elke afgewerkte reeks gaat als één resultaat naar het MELK-hart (zie melk.js).
+   Leerkracht zonder aanmelding: .../leerkracht of #leerkracht (dan verschijnt het gewone startscherm). */
+const MELK_SESSIE = window.MELK ? window.MELK.start({ app: 'werkwoorden' }) : null;
+const MELK_AANM = MELK_SESSIE ? MELK_SESSIE.aanmelding : null;
+function stuurNaarMelk(reeksLabel){
+  if(!MELK_AANM || !window.MELK || !run || run.melkVerstuurd || !run.total) return;
+  run.melkVerstuurd = true;
+  const begin = run.begin || Date.now();
+  MELK.stuur({
+    onderdeel: `werkwoorden · ${run.title}${reeksLabel}`,
+    oefening: String(run.key),
+    begin,
+    opgaven: run.total, juist: run.correct,
+    medianeTijdMs: (Date.now() - begin) / run.total,
+    moeilijk: [...new Set(run.wrong.map(w => w.juist))].slice(0, 10),
+    extra: { reeks: String(run.setNum), niveau: String(run.level), besteReeks: run.bestStreak }
+  });
+}
+
 let state = {
   fontSize: 1,
   voorlezen: false,
@@ -1269,6 +1288,7 @@ function streakBadge(){
 }
 
 function renderStep(){
+  if(!run.begin) run.begin = Date.now();
   const step = run.seq[run.i];
   let inner = '';
   if(step.type==='info'){
@@ -1566,10 +1586,12 @@ function renderReport(){
   const datum = new Date().toLocaleDateString('nl-BE');
   const reeksLabel = (run.key==='allin' || String(run.setNum).startsWith('hb_')) ? '' : ` (${reeksNaam(run.key, run.setNum)}, niveau ${run.level})`;
   const streakLine = run.bestStreak >= 3 ? `<p>🔥 Langste reeks juiste antwoorden na elkaar: <b>${run.bestStreak}</b></p>` : '';
+  stuurNaarMelk(reeksLabel);
   const html = `
     <div class="report" id="reportBox">
       <h3>📄 Rapport — ${run.title}${reeksLabel}</h3>
-      <p><b>${st.voornaam} ${st.naam}</b> — klas ${st.klas}, nr. ${st.klasnummer} — ${datum}</p>
+      <p><b>${st.voornaam} ${st.naam}</b> — klas ${st.klas}${st.klasnummer ? `, nr. ${st.klasnummer}` : ''} — ${datum}</p>
+      ${MELK_AANM ? '<p style="color:#166534">✓ Je resultaat is automatisch bewaard voor je juf of meester.</p>' : ''}
       <p>Score: <b>${run.correct} / ${run.total}</b> (${pct}%)</p>
       ${streakLine}
       ${okList.length? `<p><b>Dit lukt je goed:</b></p><ul class="ok-list">${okList.map(x=>`<li>${x}</li>`).join('')}</ul>` : ''}
@@ -1577,7 +1599,7 @@ function renderReport(){
     </div>
     <div class="report-actions">
       <button onclick="window.print()">🖨️ Printen</button>
-      <button onclick="emailReport()">📧 E-mailen</button>
+      ${MELK_AANM ? '' : '<button onclick="emailReport()">📧 E-mailen</button>'}
       <button onclick="saveReport()">💾 Opslaan</button>
       <button onclick="${run.key==='allin' ? 'renderAllInNiveau()' : `renderTopic('${run.key}')`}">Terug naar ${run.title}</button>
       <button onclick="renderHome()">Naar overzicht</button>
@@ -2497,4 +2519,12 @@ function checkDictee(){
 
 /* ---------- init ---------- */
 overridesPromise = loadSharedOverrides(); // start meteen op de achtergrond op te halen
-renderLogin();
+if(MELK_SESSIE && MELK_SESSIE.omgeleid){ /* de pagina gaat naar MELK-start */ }
+else if(MELK_AANM){
+  // aangemeld via MELK: geen inlogscherm
+  state.student = { voornaam: MELK_AANM.naam, naam: '', klas: MELK_AANM.klasnaam || MELK_AANM.klas, klasnummer: '' };
+  document.querySelector('header.topbar').style.display = 'flex';
+  renderHeader();
+  renderHome();
+}
+else renderLogin();

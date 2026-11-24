@@ -6,14 +6,14 @@
 //
 // GET      -> geeft alle aanpassingen in één keer terug: { "<key>": <data>, ... }
 //             (geen wachtwoord nodig, want leerlingen moeten dit ook kunnen lezen)
-// POST     -> body { key, data, password } slaat/overschrijft de aanpassing voor
-//             die ene reeks op (wél wachtwoord nodig)
-// DELETE   -> query ?key=...&password=... verwijdert de aanpassing voor die reeks,
+// POST     -> body { key, data, token } slaat/overschrijft de aanpassing voor
+//             die ene reeks op (enkel een beheerder van MELK)
+// DELETE   -> query ?key=... + kop x-melk-lk: <token> verwijdert de aanpassing voor die reeks,
 //             zodat de oorspronkelijke inhoud (uit handboek.js / data.js) weer geldt
 //
-// Vereist: het pakket "@netlify/blobs" (npm install @netlify/blobs) en een
-// environment variable TEACHER_PASSWORD in Netlify > Site settings > Environment
-// variables, met exact dezelfde waarde als TEACHER_PASSWORD in app.js.
+// Toegang (november 2026): geen wachtwoord meer. Het toegangsbewijs van de leerkracht (MELK)
+// wordt bij MELK nagekeken (actie lkWie via de deur van MELK-start); enkel een beheerder mag schrijven.
+// Vereist: het pakket "@netlify/blobs". De oude environment variable TEACHER_PASSWORD wordt niet meer gebruikt.
 //
 // BELANGRIJK: dit bestand gebruikt het klassieke exports.handler(event)-formaat
 // ("Lambda compatibility mode"). In die modus initialiseert Netlify Blobs zich
@@ -53,9 +53,10 @@ exports.handler = async function (event) {
     } catch (e) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Ongeldige aanvraag.' }) };
     }
-    const { key, data, password } = payload;
-    if (!checkPassword(password)) {
-      return { statusCode: 401, body: JSON.stringify({ error: 'Fout wachtwoord.' }) };
+    const { key, data, token } = payload;
+    const toegang = await isBeheerder(token);
+    if (!toegang.ok) {
+      return { statusCode: 401, body: JSON.stringify({ error: toegang.fout }) };
     }
     if (!key || typeof key !== 'string' || data === undefined) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Geen geldige reekssleutel of inhoud.' }) };
@@ -76,8 +77,10 @@ exports.handler = async function (event) {
 
   if (event.httpMethod === 'DELETE') {
     const params = event.queryStringParameters || {};
-    if (!checkPassword(params.password)) {
-      return { statusCode: 401, body: JSON.stringify({ error: 'Fout wachtwoord.' }) };
+    const kop = event.headers || {};
+    const toegang = await isBeheerder(kop['x-melk-lk'] || kop['X-Melk-Lk']);
+    if (!toegang.ok) {
+      return { statusCode: 401, body: JSON.stringify({ error: toegang.fout }) };
     }
     const key = params.key;
     if (!key) {
@@ -97,8 +100,18 @@ exports.handler = async function (event) {
   return { statusCode: 405, body: JSON.stringify({ error: 'Methode niet toegestaan.' }) };
 };
 
-function checkPassword(pw) {
-  const expected = process.env.TEACHER_PASSWORD;
-  if (!expected) return false; // niet geconfigureerd op de server -> altijd weigeren, nooit stilzwijgend toelaten
-  return pw === expected;
+// Vraagt aan MELK of dit toegangsbewijs van een beheerder is. Bij twijfel: weigeren, nooit stilzwijgend toelaten.
+const MELK_DEUR = process.env.MELK_DEUR || 'https://melk-start.netlify.app/api/deur';
+async function isBeheerder(token) {
+  if (!token || typeof token !== 'string' || token.length > 2000) return { ok: false, fout: 'Meld je eerst aan als leerkracht (MELK).' };
+  try {
+    const r = await fetch(MELK_DEUR, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actie: 'lkWie', token, app: 'werkwoorden' }) });
+    const d = await r.json();
+    if (!d || !d.ok) return { ok: false, fout: (d && d.opnieuwInloggen) ? 'Je bent afgemeld. Meld je opnieuw aan als leerkracht.' : 'MELK herkent je niet als leerkracht.' };
+    if (!d.beheerder) return { ok: false, fout: 'Enkel een beheerder van MELK mag oefeningen bewaren.' };
+    return { ok: true };
+  } catch (e) {
+    console.error('[oefeningen] MELK niet bereikbaar:', e);
+    return { ok: false, fout: 'MELK is even niet bereikbaar. Probeer het zo meteen opnieuw.' };
+  }
 }

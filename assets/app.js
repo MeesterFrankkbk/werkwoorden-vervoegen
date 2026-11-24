@@ -2,12 +2,18 @@
 const root = document.getElementById('app');
 const levelColors = {'*':'#e8f5ee','**':'#eaf1ff','***':'#fff2e0'};
 const levelText = {'*':'#166534','**':'#1e40af','***':'#9a3412'};
-const TEACHER_PASSWORD = 'STA werkt!'; // centraal ingesteld wachtwoord voor Meester Frank
+// Leerkracht (november 2026): geen wachtwoord meer. Aanmelden via MELK (inloglink per mail).
+//   elke leerkracht  -> werkbladen en correctiesleutels   (state.werkbladMode)
+//   beheerder        -> ook reeksen hernoemen en bewerken  (state.teacherMode)
+// De server (netlify/functions/oefeningen.js) controleert bij MELK of iemand beheerder is.
 
 /* MELK: aanmelden via MELK-start; elke afgewerkte reeks gaat als één resultaat naar het MELK-hart (zie melk.js).
-   Leerkracht zonder aanmelding: .../leerkracht of #leerkracht (dan verschijnt het gewone startscherm). */
+   Leerkracht: .../leerkracht of #leerkracht (proefmodus: startscherm met gele balk, er wordt niets bewaard). */
 const MELK_SESSIE = window.MELK ? window.MELK.start({ app: 'werkwoorden' }) : null;
 const MELK_AANM = MELK_SESSIE ? MELK_SESSIE.aanmelding : null;
+const PROEF = !!(MELK_SESSIE && MELK_SESSIE.leerkracht && !MELK_AANM);
+const K_NAAR_LK = 'werkwoorden-naar-leerkracht';
+const NAAR_LK = (() => { try { const j = sessionStorage.getItem(K_NAAR_LK) === '1'; sessionStorage.removeItem(K_NAAR_LK); return j && (/(^#|&)melklk=/.test(location.hash) || !!(window.MELK && MELK.leerkrachtToken && MELK.leerkrachtToken())); } catch (e) { return false; } })();
 function stuurNaarMelk(reeksLabel){
   if(!MELK_AANM || !window.MELK || !run || run.melkVerstuurd || !run.total) return;
   run.melkVerstuurd = true;
@@ -28,7 +34,8 @@ let state = {
   voorlezen: false,
   voice: null,
   student: null, // {voornaam, naam, klas, klasnummer}
-  teacherMode: false,
+  teacherMode: false,   // beheerder (bewerken)
+  werkbladMode: false,  // elke leerkracht (werkbladen)
 };
 
 const sizeSteps = [16,19,23];
@@ -121,8 +128,9 @@ function populateVoices(select){
    opgeslagen, niet per browser/toestel. Bij het opstarten van de app wordt
    dit één keer volledig opgehaald in "sharedOverrides"; dat blijft nadien in
    het geheugen zitten, dus reeksNaam() bijvoorbeeld kan gewoon synchroon
-   blijven werken. Opslaan/verwijderen gaat wél via de server (met wachtwoord). */
+   blijven werken. Opslaan/verwijderen gaat wél via de server (enkel voor een beheerder van MELK). */
 let sharedOverrides = null; // null = nog niet opgehaald; daarna altijd een object
+function lkToken(){ try { return (window.MELK && MELK.leerkrachtToken && MELK.leerkrachtToken()) || ''; } catch(e){ return ''; } }
 let overridesPromise = null;
 async function loadSharedOverrides(){
   try{
@@ -141,7 +149,7 @@ async function saveOverride(key, data){
   const res = await fetch('/.netlify/functions/oefeningen', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ key, data, password: TEACHER_PASSWORD })
+    body: JSON.stringify({ key, data, token: lkToken() })
   });
   if(!res.ok){
     const info = await res.json().catch(()=>({}));
@@ -151,7 +159,7 @@ async function saveOverride(key, data){
   sharedOverrides[key] = data; // meteen lokaal bijwerken, geen nieuwe fetch nodig
 }
 async function deleteOverride(key){
-  const res = await fetch('/.netlify/functions/oefeningen?key=' + encodeURIComponent(key) + '&password=' + encodeURIComponent(TEACHER_PASSWORD), { method: 'DELETE' });
+  const res = await fetch('/.netlify/functions/oefeningen?key=' + encodeURIComponent(key), { method: 'DELETE', headers: { 'x-melk-lk': lkToken() } });
   if(!res.ok){
     const info = await res.json().catch(()=>({}));
     throw new Error(info.error || ('Verwijderen mislukt (status ' + res.status + ').'));
@@ -185,37 +193,41 @@ async function hernoemReeks(key, setNum){
   }
 }
 
-/* ---------- Meester Frank (leerkracht-login) ---------- */
+/* ---------- Leerkracht: aanmelden via MELK (geen wachtwoord meer) ---------- */
 function openTeacherLogin(){
+  if(!window.MELK || !MELK.leerkracht){ alert('MELK kon niet geladen worden. Controleer de internetverbinding.'); return; }
+  try { sessionStorage.setItem(K_NAAR_LK, '1'); } catch(e) {}
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg'; bg.id = 'lkWacht';
+  bg.innerHTML = `<div class="modal" style="max-width:360px"><h2>👨‍🏫 Leerkracht</h2><p id="lkWachtTekst">Even nakijken of je als leerkracht aangemeld bent bij MELK…</p></div>`;
+  document.body.appendChild(bg);
+  MELK.leerkracht({ app: 'werkwoorden' }).then(r => {
+    try { sessionStorage.removeItem(K_NAAR_LK); } catch(e) {}
+    if(!r || !r.ok){
+      document.getElementById('lkWachtTekst').innerHTML = (r && r.fout ? r.fout : 'Er liep iets mis.') + '<br><button class="bigbtn" style="margin-top:.8rem" onclick="this.closest(\'.modal-bg\').remove()">Sluiten</button>';
+      return;
+    }
+    bg.remove();
+    state.werkbladMode = true;
+    state.teacherMode = !!r.beheerder;
+    if(!state.student) document.querySelector('header.topbar').style.display = 'flex';
+    renderHeader();
+    if(state.teacherMode) renderTeacherPanel(); else { renderHome(); toonWerkbladUitleg(); }
+  });
+}
+function toonWerkbladUitleg(){
   const bg = document.createElement('div');
   bg.className = 'modal-bg';
   bg.onclick = (e)=>{ if(e.target===bg) bg.remove(); };
-  bg.innerHTML = `
-    <div class="modal" style="max-width:360px">
-      <button class="modal-close" onclick="this.closest('.modal-bg').remove()">✖</button>
-      <h2>👨‍🏫 Meester Frank</h2>
-      <p>Log in om reeksen te hernoemen en (later) meer te beheren.</p>
-      <input type="password" id="teacherPass" placeholder="Wachtwoord" style="width:100%;padding:.6rem;border:2px solid var(--line);border-radius:10px;font-family:inherit" onkeydown="if(event.key==='Enter')doTeacherLogin()">
-      <button class="bigbtn" style="margin-top:.8rem" onclick="doTeacherLogin()">Inloggen</button>
-      <p id="teacherError" style="color:#b91c1c;font-size:.85rem;min-height:1.2em"></p>
-    </div>`;
+  bg.innerHTML = `<div class="modal" style="max-width:420px"><button class="modal-close" onclick="this.closest('.modal-bg').remove()">✖</button>
+    <h2>🖨️ Werkbladen</h2><p>Kies een onderdeel en een reeks. Bovenaan het scherm waar je het niveau kiest, staat de knop <b>🖨️ Werkblad (★+★★+★★★)</b>, met de correctiesleutel erbij.</p>
+    <button class="bigbtn" onclick="this.closest('.modal-bg').remove()">OK</button></div>`;
   document.body.appendChild(bg);
-  document.getElementById('teacherPass').focus();
-}
-function doTeacherLogin(){
-  const val = document.getElementById('teacherPass').value;
-  if(val === TEACHER_PASSWORD){
-    state.teacherMode = true;
-    document.querySelector('.modal-bg').remove();
-    if(!state.student) document.querySelector('header.topbar').style.display = 'flex';
-    renderHeader();
-    renderTeacherPanel();
-  } else {
-    document.getElementById('teacherError').textContent = 'Wachtwoord klopt niet.';
-  }
 }
 function teacherLogout(){
   state.teacherMode = false;
+  state.werkbladMode = false;
+  try { window.MELK && MELK.leerkrachtAfmelden && MELK.leerkrachtAfmelden(); } catch(e) {}
   renderHeader();
   renderHome();
 }
@@ -778,7 +790,7 @@ function buildWerkbladPaginasHTML(titel, tense, volgorde){
 }
 
 async function renderWerkbladPreview(source, srcId, backAction){
-  if(!state.teacherMode) return;
+  if(!state.werkbladMode && !state.teacherMode) return;
   stopSpeech();
   root.innerHTML = `<p class="no-print">Werkblad wordt klaargemaakt...</p>`;
   const { titel, tense, secties } = await gatherWerkbladSecties(source, srcId);
@@ -801,7 +813,7 @@ async function renderWerkbladPreview(source, srcId, backAction){
 }
 
 function renderCorrectiesleutel(){
-  if(!state.teacherMode || !werkbladCtx) return;
+  if((!state.werkbladMode && !state.teacherMode) || !werkbladCtx) return;
   const d = werkbladCtx;
   let html = '';
   ['*','**','***'].forEach(lvl=>{
@@ -836,7 +848,7 @@ function renderAIReeksNiveau(id){
   const countFor = capLevel => item.exercises.filter(ex=>order[ex.level||'*']<=order[capLevel]).length;
   root.innerHTML = `
     <button class="backbtn" onclick="renderTopic('${item.tense}')">← Terug</button>
-    <h2>✨ ${item.naam} ${state.teacherMode ? `<button class="iconbtn" onclick="renderWerkbladPreview('ai',${id},\`renderAIReeksNiveau(${id})\`)">🖨️ Werkblad (★+★★+★★★)</button>` : ''}</h2>
+    <h2>✨ ${item.naam} ${(state.werkbladMode || state.teacherMode) ? `<button class="iconbtn werkbladknop" onclick="renderWerkbladPreview('ai',${id},\`renderAIReeksNiveau(${id})\`)">🖨️ Werkblad (★+★★+★★★)</button>` : ''}</h2>
     <p>Kies je niveau. Hoe meer sterren, hoe meer zinnen je maakt.</p>
     <div class="niveau-grid">
       <div class="niveau-card" style="border-color:${t.color}" onclick="startAIRunFromSaved(${id},'*')">
@@ -1020,7 +1032,7 @@ function renderLogin(){
       <input type="number" id="loginNummer" min="1" max="40" autocomplete="off">
       <button class="bigbtn" onclick="doLogin()">Start ▶</button>
       <p id="loginError" style="color:#b91c1c;font-size:.85rem;min-height:1.2em"></p>
-      <p style="text-align:center;margin-top:.6rem"><a href="#" onclick="openTeacherLogin();return false;" style="color:#666;font-size:.85rem">👨‍🏫 Meester Frank</a></p>
+      <p style="text-align:center;margin-top:.6rem"><a href="#" onclick="openTeacherLogin();return false;" style="color:#666;font-size:.85rem">👨‍🏫 Leerkracht</a></p>
     </div>`;
   document.getElementById('loginVoornaam').focus();
 }
@@ -1056,7 +1068,9 @@ function renderHeader(){
     <button class="iconbtn" onclick="openSpiekbrief()">📋 Spiekbrief</button>
     ${state.teacherMode
       ? `<button class="iconbtn active" onclick="renderTeacherPanel()">⚙️ Beheerpaneel</button><button class="iconbtn" onclick="teacherLogout()">🚪 Uitloggen</button>`
-      : `<button class="iconbtn" onclick="openTeacherLogin()">👨‍🏫 Meester Frank</button>`}
+      : state.werkbladMode
+      ? `<button class="iconbtn active" onclick="toonWerkbladUitleg()">🖨️ Werkbladen</button><button class="iconbtn" onclick="teacherLogout()">🚪 Uitloggen</button>`
+      : MELK_AANM ? '' : `<button class="iconbtn" onclick="openTeacherLogin()">👨‍🏫 Leerkracht</button>`}
   `;
   setFontSize(state.fontSize);
   const vBtn = document.getElementById('voorleesBtn');
@@ -1206,7 +1220,7 @@ function renderNiveau(key, setNum){
   const t = WERKWOORDEN_DATA[key];
   root.innerHTML = `
     <button class="backbtn" onclick="renderTopic('${key}')">← Terug</button>
-    <h2>${t.title} — ${reeksNaam(key,setNum)} ${state.teacherMode ? `<button class="iconbtn" onclick="openReeksEditor('${key}','${setNum}')">🛠️ Oefeningen bewerken</button> <button class="iconbtn" onclick="renderWerkbladPreview('reeks',{key:'${key}',setNum:'${setNum}'},\`renderNiveau('${key}','${setNum}')\`)">🖨️ Werkblad (★+★★+★★★)</button>` : ''}</h2>
+    <h2>${t.title} — ${reeksNaam(key,setNum)} ${(state.werkbladMode || state.teacherMode) ? `<button class="iconbtn werkbladknop" onclick="renderWerkbladPreview('reeks',{key:'${key}',setNum:'${setNum}'},\`renderNiveau('${key}','${setNum}')\`)">🖨️ Werkblad (★+★★+★★★)</button>` : ''} ${state.teacherMode ? `<button class="iconbtn" onclick="openReeksEditor('${key}','${setNum}')">🛠️ Oefeningen bewerken</button>` : ''}</h2>
     <p>Kies je niveau. Hoe meer sterren, hoe meer opdrachten je maakt.</p>
     <div class="niveau-grid">
       <div class="niveau-card" style="border-color:${t.color}" onclick="startRun('${key}','${setNum}','*')">
@@ -1599,7 +1613,7 @@ function renderReport(){
     </div>
     <div class="report-actions">
       <button onclick="window.print()">🖨️ Printen</button>
-      ${MELK_AANM ? '' : '<button onclick="emailReport()">📧 E-mailen</button>'}
+      ${(MELK_AANM || PROEF) ? '' : '<button onclick="emailReport()">📧 E-mailen</button>'}
       <button onclick="saveReport()">💾 Opslaan</button>
       <button onclick="${run.key==='allin' ? 'renderAllInNiveau()' : `renderTopic('${run.key}')`}">Terug naar ${run.title}</button>
       <button onclick="renderHome()">Naar overzicht</button>
@@ -2131,7 +2145,7 @@ async function renderHandboekNiveau(code){
   };
   root.innerHTML = `
     <button class="backbtn" onclick="${t.backAction}">← Terug</button>
-    <h2>${t.title} — ${reeksNaam('hb_'+code,'1')} ${state.teacherMode ? `<button class="renamebtn" onclick="hernoemReeks('hb_${code}','1')">✏️</button> <button class="iconbtn" onclick="openHandboekEditor('${code}')">🛠️ Oefeningen bewerken</button> <button class="iconbtn" onclick="renderWerkbladPreview('handboek','${code}',\`renderHandboekNiveau('${code}')\`)">🖨️ Werkblad (★+★★+★★★)</button>` : ''}</h2>
+    <h2>${t.title} — ${reeksNaam('hb_'+code,'1')} ${(state.werkbladMode || state.teacherMode) ? `<button class="iconbtn werkbladknop" onclick="renderWerkbladPreview('handboek','${code}',\`renderHandboekNiveau('${code}')\`)">🖨️ Werkblad (★+★★+★★★)</button>` : ''} ${state.teacherMode ? `<button class="renamebtn" onclick="hernoemReeks('hb_${code}','1')">✏️</button> <button class="iconbtn" onclick="openHandboekEditor('${code}')">🛠️ Oefeningen bewerken</button>` : ''}</h2>
     <p>Kies je niveau. Hoe meer sterren, hoe meer opdrachten je maakt.</p>
     <div class="niveau-grid">
       <div class="niveau-card" style="border-color:${t.color}" onclick="startHandboekRun('${code}','*')">
@@ -2527,4 +2541,18 @@ else if(MELK_AANM){
   renderHeader();
   renderHome();
 }
+else if(PROEF){
+  // leerkracht (bv. Bekijken vanuit het leerkrachtenportaal): meteen het startscherm, niets wordt bewaard
+  state.student = { voornaam: 'Leerkracht', naam: '', klas: '', klasnummer: '' };
+  document.querySelector('header.topbar').style.display = 'flex';
+  const balk = document.createElement('div');
+  balk.id = 'proef-balk';
+  balk.style.cssText = 'background:#fff7cc;border-bottom:2px solid #f2d36b;color:#5c4a00;padding:.55rem 1rem;text-align:center;font-size:.95rem';
+  balk.innerHTML = 'Je bekijkt Werkwoorden als leerkracht (proefmodus): er wordt niets bewaard of verstuurd. Werkbladen? Klik bovenaan op <b>👨‍🏫 Leerkracht</b>. Resultaten van je klas: <a href="' + (window.MELK_START_ADRES || 'https://melk-start.netlify.app') + '/leerkracht">leerkrachtenportaal</a>.';
+  document.querySelector('header.topbar').insertAdjacentElement('afterend', balk);
+  renderHeader();
+  renderHome();
+  if(NAAR_LK) openTeacherLogin();
+}
 else renderLogin();
+if(MELK_AANM && NAAR_LK) openTeacherLogin();

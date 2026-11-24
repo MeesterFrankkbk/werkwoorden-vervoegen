@@ -14,7 +14,17 @@
        * één pakketje naar het MELK-hart, via een wachtrij op het toestel:
          geen internet = later opnieuw (ook na herladen), nooit dubbel
    - MELK.opStatus(functie(status, aantal))   status: leeg | bezig | bewaard | wacht
+   - MELK.voortgangLees() / MELK.voortgangBewaar(obj)   wat de leerling bereikte, volgt hem naar elk toestel
    - MELK.actief()   de leerling is bezig (bv. hardop aan het lezen): niet afmelden wegens stilte
+   - MELK.leerkracht({ app: 'woordpuzzel', beheerder: true })      (vanaf november 2026)
+       * de leerkrachtenzone van een app: inloggen met de link per mail (MELK-start), daarna terug
+       * geeft een Promise: { ok, naam, mail, beheerder, klassen: [{ klascode, klasnaam, leerjaar, appAan, instellingen }] }
+         met beheerder: true gevraagd en de leerkracht is geen beheerder: { ok: true, geweigerd: true, ... }
+   - MELK.slot({ app: 'oefenplein', beheerder: true })  -> Promise met dezelfde gegevens, maar enkel als de toegang mag;
+       anders toont het zelf een nette melding ("enkel voor beheerders") en gaat de Promise nooit door.
+       Vervangt een wachtwoordscherm in één regel: MELK.slot({...}).then(start)
+   - MELK.leerkrachtToken()      toegangsbewijs, voor een achterkant die zelf wil nakijken wie er bewaart
+   - MELK.leerkrachtAfmelden()   uit de leerkrachtenzone van deze app
    ============================================================================= */
 (function () {
   'use strict';
@@ -23,6 +33,7 @@
   var STIL_MS = 10 * 60 * 1000;
   var K_AANM = 'melk-aanmelding-v1';
   var K_RIJ = 'melk-wachtrij-v1';
+  var K_LK = 'melk-leerkracht-v1';
   var APP = '';
   var luisteraars = [], laatste = 'leeg', bezig = false;
 
@@ -119,10 +130,39 @@
     return lus();
   }
 
+  // ---- voortgang: wat een leerling in een app bereikte, volgt hem van toestel naar toestel ----
+  // MELK.voortgangLees()        -> Promise { ok, gegevens (of null), instellingen (kolom Instellingen in Klas-apps) }
+  // MELK.voortgangBewaar(obj)   -> bewaart obj (max. ± 45 000 tekens); probeert opnieuw als er even geen verbinding is
+  var voortgangWacht = null, voortgangBezig = null;
+  function voortgangLees() {
+    var a = huidige();
+    if (!a) return Promise.resolve({ ok: false, fout: 'niet aangemeld' });
+    return fetch(DEUR, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actie: 'voortgangLees', token: a.token, app: APP }) })
+      .then(function (r) { return r.json(); }).catch(function () { return { ok: false, geenVerbinding: true }; });
+  }
+  function voortgangBewaar(g) { voortgangWacht = g; return stuurVoortgang(); }
+  function stuurVoortgang() {
+    if (voortgangBezig) return voortgangBezig.then(function () { return voortgangWacht ? stuurVoortgang() : null; });
+    var a = huidige(), g = voortgangWacht;
+    if (!a || !g) return Promise.resolve(null);
+    voortgangWacht = null;
+    voortgangBezig = fetch(DEUR, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actie: 'voortgangBewaar', token: a.token, app: APP, gegevens: g }) })
+      .then(function (r) { return r.json(); }).catch(function () { return null; })
+      .then(function (r) {
+        voortgangBezig = null;
+        // geen verbinding: later opnieuw (tenzij er intussen al iets nieuwers klaarstaat)
+        if ((!r || (!r.ok && !r.opnieuwInloggen && r.fout !== 'te groot')) && !voortgangWacht) voortgangWacht = g;
+        return r;
+      });
+    return voortgangBezig;
+  }
+  function metTijdslimiet(p, ms) { return Promise.race([p, new Promise(function (r) { setTimeout(r, ms); })]); }
+
   function klaar() {
     var k = document.getElementById('melk-klaar');
     if (k) { k.disabled = true; k.textContent = 'Even bewaren…'; }
-    return wachtTotLeeg(4000).then(function () { schrijf(sessionStorage, K_AANM, null); naarMelkStart(); });
+    return Promise.all([wachtTotLeeg(4000), metTijdslimiet(stuurVoortgang(), 4000)])
+      .then(function () { schrijf(sessionStorage, K_AANM, null); naarMelkStart(); });
   }
 
   // ---- naambalk -------------------------------------------------------------
@@ -160,7 +200,7 @@
   function start(opts) {
     APP = (opts && opts.app) || '';
     neemOverUitAdres();
-    var leerkracht = /^\/leerkracht/i.test(location.pathname) || location.hash === '#leerkracht';
+    var leerkracht = /^\/leerkracht/i.test(location.pathname) || location.hash === '#leerkracht' || /(^#|&)melklk=/.test(location.hash);
     var a = huidige();
     if (!a && !leerkracht) { naarMelkStart(); return { omgeleid: true, leerkracht: false, aanmelding: null }; }
     if (a) {
@@ -169,12 +209,74 @@
       var toon = function () { toonNaambalk(a); };
       if (document.body) toon(); else document.addEventListener('DOMContentLoaded', toon);
     }
-    window.addEventListener('online', verwerk);
-    setInterval(verwerk, 20000);
+    window.addEventListener('online', function () { verwerk(); stuurVoortgang(); });
+    setInterval(function () { verwerk(); if (voortgangWacht) stuurVoortgang(); }, 20000);
     verwerk();
     return { omgeleid: false, leerkracht: leerkracht, aanmelding: a };
   }
 
+  // ---- leerkrachtenzone (login met de link per mail via MELK-start) -----------
+  function neemLkOverUitAdres() {
+    var h = new URLSearchParams(location.hash.slice(1));
+    var t = h.get('melklk');
+    if (!t) return false;
+    schrijf(sessionStorage, K_LK, { token: t });
+    history.replaceState(null, '', location.pathname + location.search);
+    return true;
+  }
+  function naarLeerkrachtLogin(app) {
+    var terug = location.origin + location.pathname + location.search;
+    location.replace(MELK_START + '/leerkracht.html?' + (app ? 'app=' + encodeURIComponent(app) + '&' : '') + 'terug=' + encodeURIComponent(terug));
+  }
+  function leerkrachtToken() { var x = lees(sessionStorage, K_LK, null); return x ? x.token : ''; }
+  function leerkrachtAfmelden() { schrijf(sessionStorage, K_LK, null); }
+  function leerkracht(opts) {
+    opts = opts || {};
+    var app = opts.app || APP;
+    neemLkOverUitAdres();
+    var token = leerkrachtToken();
+    if (!token) { naarLeerkrachtLogin(app); return new Promise(function () {}); }
+    return fetch(DEUR, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actie: 'lkWie', token: token, app: app }) })
+      .then(function (r) { return r.json(); })
+      .catch(function () { return { ok: false, fout: 'Geen verbinding met MELK. Probeer het zo meteen opnieuw.' }; })
+      .then(function (r) {
+        if (r && r.opnieuwInloggen) { leerkrachtAfmelden(); naarLeerkrachtLogin(app); return new Promise(function () {}); }
+        if (!r || !r.ok) return { ok: false, fout: (r && r.fout) || 'Er liep iets mis.' };
+        if (opts.beheerder && !r.beheerder) r.geweigerd = true;
+        return r;
+      });
+  }
+
+  function slotScherm(html) {
+    var d = document.getElementById('melk-slot');
+    if (!d) {
+      d = document.createElement('div'); d.id = 'melk-slot';
+      d.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;background:#f6f8f1;font:16px/1.5 system-ui,-apple-system,Segoe UI,Arial,sans-serif;color:#223';
+      (document.body || document.documentElement).appendChild(d);
+    }
+    d.innerHTML = '<div style="max-width:440px;background:#fff;border:1px solid #dfe6d3;border-radius:16px;padding:22px 24px;text-align:center">' + html + '</div>';
+    return d;
+  }
+  function slot(opts) {
+    opts = opts || {};
+    var wacht = function () { slotScherm('<p style="margin:0">Even nakijken wie je bent…</p>'); };
+    if (document.body) wacht(); else document.addEventListener('DOMContentLoaded', wacht);
+    return leerkracht(opts).then(function (r) {
+      var weg = function () { var d = document.getElementById('melk-slot'); if (d) d.remove(); };
+      if (!r.ok) { slotScherm('<p style="margin:0 0 8px;font-weight:700">MELK is even niet bereikbaar</p><p style="margin:0">' + esc(r.fout) + '</p>'); return new Promise(function () {}); }
+      if (r.geweigerd) {
+        slotScherm('<p style="font-size:30px;margin:0">🔒</p><p style="margin:6px 0;font-weight:700">Dit deel is enkel voor beheerders</p>' +
+          '<p style="margin:0 0 12px">Je bent aangemeld als ' + esc(r.naam) + '. Vraag het aan de beheerder van MELK als je hier toegang nodig hebt.</p>' +
+          '<a href="' + esc(MELK_START) + '/leerkracht.html" style="color:#2f6b1a;font-weight:700">Naar MELK voor leerkrachten</a>');
+        return new Promise(function () {});
+      }
+      weg();
+      return r;
+    });
+  }
+
   // actief(): de app meldt zelf dat er gewerkt wordt (bv. hardop lezen zonder te klikken)
-  window.MELK = { start: start, stuur: stuur, opStatus: opStatus, klaar: klaar, huidige: huidige, actief: activiteit };
+  window.MELK = { start: start, stuur: stuur, opStatus: opStatus, klaar: klaar, huidige: huidige, actief: activiteit,
+    voortgangLees: voortgangLees, voortgangBewaar: voortgangBewaar,
+    leerkracht: leerkracht, slot: slot, leerkrachtToken: leerkrachtToken, leerkrachtAfmelden: leerkrachtAfmelden };
 })();
